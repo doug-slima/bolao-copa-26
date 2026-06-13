@@ -43,9 +43,9 @@ export function LoggedHome() {
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                 <Target weight="bold" className="w-4 h-4 text-primary" />
               </div>
-              <h3 className="font-semibold text-sm">O que você pode chutar</h3>
+              <h3 className="font-semibold text-base">O que você pode chutar</h3>
             </div>
-            <ul className="text-muted-foreground text-xs space-y-2 list-disc list-inside flex-1">
+            <ul className="text-muted-foreground text-sm space-y-2 list-disc list-inside flex-1">
               <li>Placar do Jogo</li>
               <li>Resultado Final do Jogo (vitória/empate)</li>
               <li>Que time marca primeiro</li>
@@ -58,9 +58,9 @@ export function LoggedHome() {
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                 <Trophy weight="bold" className="w-4 h-4 text-primary" />
               </div>
-              <h3 className="font-semibold text-sm">Pontuação</h3>
+              <h3 className="font-semibold text-base">Pontuação</h3>
             </div>
-            <ul className="text-muted-foreground text-xs space-y-2 list-disc list-inside flex-1">
+            <ul className="text-muted-foreground text-sm space-y-2 list-disc list-inside flex-1">
               <li>
                 Acertar o placar sozinho = <strong>{POINTS.EXACT_SCORE.unique} pts</strong>
               </li>
@@ -88,9 +88,9 @@ export function LoggedHome() {
               <div className="w-8 h-8 rounded-full bg-orange-500/10 flex items-center justify-center shrink-0">
                 <Clock weight="bold" className="w-4 h-4 text-orange-500" />
               </div>
-              <h3 className="font-semibold text-sm">Prazo para chutar</h3>
+              <h3 className="font-semibold text-base">Prazo para chutar</h3>
             </div>
-            <ul className="text-muted-foreground text-xs space-y-2 list-disc list-inside flex-1">
+            <ul className="text-muted-foreground text-sm space-y-2 list-disc list-inside flex-1">
               <li>Um chute por categoria (Placar; Resultado; 1º a Marcar)</li>
               <li>
                 Chutes até <strong>5 min antes</strong> do início do jogo
@@ -120,9 +120,9 @@ export function LoggedHome() {
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                 <Sword weight="bold" className="w-4 h-4 text-primary" />
               </div>
-              <h3 className="font-semibold text-sm">Como funciona</h3>
+              <h3 className="font-semibold text-base">Como funciona</h3>
             </div>
-            <ul className="text-muted-foreground text-xs space-y-2 list-disc list-inside flex-1">
+            <ul className="text-muted-foreground text-sm space-y-2 list-disc list-inside flex-1">
               <li>Escolha um amigo e um jogo</li>
               <li>Se você não tiver chute, faça antes de enviar</li>
               <li>Seu amigo recebe e pode aceitar ou recusar</li>
@@ -136,9 +136,9 @@ export function LoggedHome() {
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                 <Trophy weight="bold" className="w-4 h-4 text-primary" />
               </div>
-              <h3 className="font-semibold text-sm">Pontuação</h3>
+              <h3 className="font-semibold text-base">Pontuação</h3>
             </div>
-            <ul className="text-muted-foreground text-xs space-y-2 list-disc list-inside flex-1">
+            <ul className="text-muted-foreground text-sm space-y-2 list-disc list-inside flex-1">
               <li>
                 Se você acertar o chute ={" "}
                 <strong className="text-green-500">+{CHALLENGE_POINTS.WIN} pts pra você</strong>
@@ -164,9 +164,9 @@ export function LoggedHome() {
               <div className="w-8 h-8 rounded-full bg-orange-500/10 flex items-center justify-center shrink-0">
                 <Clock weight="bold" className="w-4 h-4 text-orange-500" />
               </div>
-              <h3 className="font-semibold text-sm">Regras</h3>
+              <h3 className="font-semibold text-base">Regras</h3>
             </div>
-            <ul className="text-muted-foreground text-xs space-y-2 list-disc list-inside flex-1">
+            <ul className="text-muted-foreground text-sm space-y-2 list-disc list-inside flex-1">
               <li>Um desafio por jogo por amigo</li>
               <li>Desafios pendentes expiram com o deadline do jogo</li>
               <li>Se alguém não tiver chute, desafio é anulado</li>

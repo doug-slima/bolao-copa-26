@@ -14,31 +14,9 @@ import { SneakerMove, Fire, GithubLogo } from "@phosphor-icons/react";
 import { matches } from "@/lib/mock-data";
 import { TeamFlag } from "@/components/bolao";
 
-function getCurrentWeekMatches() {
-  const now = new Date();
-  const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - now.getDay());
-  startOfWeek.setHours(0, 0, 0, 0);
-  
-  const endOfWeek = new Date(startOfWeek);
-  endOfWeek.setDate(startOfWeek.getDate() + 7);
-  
-  const weekMatches = matches.filter((match) => {
-    const matchDate = new Date(match.date);
-    return matchDate >= startOfWeek && matchDate < endOfWeek;
-  });
-  
-  if (weekMatches.length < 4) {
-    return matches
-      .filter((match) => new Date(match.date) >= now)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .slice(0, 8);
-  }
-  
-  return weekMatches.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-}
-
-const carouselMatches = getCurrentWeekMatches();
+const staticCarouselMatches = matches
+  .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+  .slice(0, 8);
 
 const crestExtensions: Record<string, string> = {
   ALG: "png", ARG: "png", AUS: "png", AUT: "svg", BEL: "png", BIH: "svg",
@@ -56,6 +34,8 @@ function getCrestPath(code: string): string {
   return `/crests/${code}.${ext}`;
 }
 
+const monthNames = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+
 function MatchCarouselCard({ homeFlag, awayFlag, homeCode, awayCode, homeName, awayName, date }: {
   homeFlag: string;
   awayFlag: string;
@@ -66,10 +46,9 @@ function MatchCarouselCard({ homeFlag, awayFlag, homeCode, awayCode, homeName, a
   date: string;
 }) {
   const matchDate = new Date(date);
-  const formattedDate = matchDate.toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "short",
-  });
+  const day = matchDate.getUTCDate().toString().padStart(2, "0");
+  const month = monthNames[matchDate.getUTCMonth()];
+  const formattedDate = `${day} ${month}`;
 
   return (
     <div className="shrink-0 w-[360px] h-[200px] bg-card border border-border/50 rounded-2xl p-6 shadow-sm flex items-center justify-between">
@@ -142,7 +121,7 @@ export function LandingPage() {
       <div className="mt-10 w-full overflow-hidden">
         <div className="flex gap-6 marquee-container">
           <div className="flex gap-6 animate-marquee-scroll">
-            {carouselMatches.map((match) => (
+            {staticCarouselMatches.map((match) => (
               <MatchCarouselCard
                 key={match.id}
                 homeFlag={getCrestPath(match.homeTeam.code)}
@@ -156,7 +135,7 @@ export function LandingPage() {
             ))}
           </div>
           <div className="flex gap-6 animate-marquee-scroll" aria-hidden="true">
-            {carouselMatches.map((match) => (
+            {staticCarouselMatches.map((match) => (
               <MatchCarouselCard
                 key={`dup-${match.id}`}
                 homeFlag={getCrestPath(match.homeTeam.code)}

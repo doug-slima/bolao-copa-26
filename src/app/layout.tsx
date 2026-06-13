@@ -32,7 +32,10 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body>
-        <ClerkProvider>
+        <ClerkProvider
+          domain="clerk.bolaocopa.fun"
+          isSatellite={false}
+        >
           <ThemeProvider>
             <TooltipProvider>{children}</TooltipProvider>
           </ThemeProvider>

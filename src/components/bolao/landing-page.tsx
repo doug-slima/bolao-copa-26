@@ -121,15 +121,15 @@ export function LandingPage() {
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <div className="flex flex-row items-center justify-center gap-2 sm:gap-3">
             <SignInButton mode="modal">
-              <Button className="min-w-[160px] h-12 px-5 text-base rounded-full">
+              <Button className="h-10 sm:h-12 px-4 sm:px-5 text-sm sm:text-base rounded-full">
                 Começar
               </Button>
             </SignInButton>
             <Button
               variant="outline"
-              className="min-w-[160px] h-12 px-5 text-base rounded-full !border-white/40 hover:!border-white/70"
+              className="h-10 sm:h-12 px-4 sm:px-5 text-sm sm:text-base rounded-full !border-white/40 hover:!border-white/70"
               onClick={() => setShowJoinModal(true)}
             >
               Entrar com código
@@ -173,7 +173,7 @@ export function LandingPage() {
       </div>
 
       {/* Disclaimers */}
-      <div className="flex-1 flex flex-col items-center justify-center gap-2 text-base text-white/50">
+      <div className="flex-1 flex flex-col items-center justify-center gap-1 sm:gap-2 text-[11px] sm:text-base text-white/50 px-4 text-center">
         <p>Sem apostas em dinheiro, apenas diversão.</p>
         <p>Crie suas ligas privadas e compartilhe com seus amigos.</p>
         <p>Login seguro via Google, não armazenamos senhas.</p>

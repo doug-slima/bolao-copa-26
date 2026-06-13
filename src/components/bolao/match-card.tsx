@@ -7,7 +7,7 @@ import { Match } from "@/types";
 import { TeamFlag } from "./team-flag";
 import { YoutubeLogo, SneakerMove } from "@phosphor-icons/react";
 
-const CAZÉTV_LIVE_URL = "https://www.youtube.com/@CasimiroMiguel/live";
+const CAZÉTV_LIVE_URL = "https://www.youtube.com/@CasimiroTV/live";
 
 interface UserPrediction {
   homeScore: number;

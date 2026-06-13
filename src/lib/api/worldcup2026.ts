@@ -10,6 +10,33 @@ import { getTeamCrest } from "@/lib/team-crests";
 const API_BASE_URL = "https://wc2026.moothz.win";
 
 // ============================================
+// STADIUM TIMEZONE OFFSETS (UTC offset during DST)
+// local_date from API is in the local timezone of the stadium
+// ============================================
+const STADIUM_UTC_OFFSETS: Record<string, number> = {
+  // Mexico (Central Daylight Time = UTC-5)
+  "1": -5,  // Estadio Azteca - Mexico City
+  "2": -5,  // Estadio Akron - Guadalajara
+  "3": -5,  // Estadio BBVA - Monterrey
+  // US Central (CDT = UTC-5)
+  "4": -5,  // AT&T Stadium - Dallas
+  "5": -5,  // NRG Stadium - Houston
+  "6": -5,  // Arrowhead Stadium - Kansas City
+  // US Eastern (EDT = UTC-4)
+  "7": -4,  // Mercedes-Benz Stadium - Atlanta
+  "8": -4,  // Hard Rock Stadium - Miami
+  "9": -4,  // Gillette Stadium - Boston
+  "10": -4, // Lincoln Financial Field - Philadelphia
+  "11": -4, // MetLife Stadium - New York/New Jersey
+  "12": -4, // BMO Field - Toronto
+  // US/Canada Pacific (PDT = UTC-7)
+  "13": -7, // BC Place - Vancouver
+  "14": -7, // Lumen Field - Seattle
+  "15": -7, // Levi's Stadium - San Francisco
+  "16": -7, // SoFi Stadium - Los Angeles
+};
+
+// ============================================
 // API RESPONSE TYPES
 // ============================================
 
@@ -335,16 +362,23 @@ export function transformApiGame(
   else if (game.type === "third") stage = "third";
   else if (game.type === "final") stage = "final";
 
-  // Parse local_date (US Eastern Time) and convert to proper UTC
-  // The API's date field has a 1-hour error, so we use local_date instead
+  // Parse local_date using the stadium's local timezone
+  // local_date is in the timezone of the stadium where the game is played
   let matchDate: Date;
-  if (game.local_date) {
-    // local_date format: "MM/DD/YYYY HH:mm" in US Eastern Time
+  if (game.local_date && game.stadium_id) {
+    // local_date format: "MM/DD/YYYY HH:mm"
     const [datePart, timePart] = game.local_date.split(' ');
     const [month, day, year] = datePart.split('/');
     const [hour, minute] = timePart.split(':');
-    // Create date string in ISO format with US Eastern offset (-04:00 for EDT summer time)
-    matchDate = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:00-04:00`);
+    
+    // Get the UTC offset for this stadium (default to -4 for Eastern if unknown)
+    const utcOffset = STADIUM_UTC_OFFSETS[game.stadium_id] ?? -4;
+    const offsetStr = utcOffset >= 0 
+      ? `+${String(utcOffset).padStart(2, '0')}:00`
+      : `-${String(Math.abs(utcOffset)).padStart(2, '0')}:00`;
+    
+    // Create date string in ISO format with the stadium's timezone offset
+    matchDate = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:00${offsetStr}`);
   } else {
     matchDate = new Date(game.date);
   }

@@ -335,11 +335,25 @@ export function transformApiGame(
   else if (game.type === "third") stage = "third";
   else if (game.type === "final") stage = "final";
 
+  // Parse local_date (US Eastern Time) and convert to proper UTC
+  // The API's date field has a 1-hour error, so we use local_date instead
+  let matchDate: Date;
+  if (game.local_date) {
+    // local_date format: "MM/DD/YYYY HH:mm" in US Eastern Time
+    const [datePart, timePart] = game.local_date.split(' ');
+    const [month, day, year] = datePart.split('/');
+    const [hour, minute] = timePart.split(':');
+    // Create date string in ISO format with US Eastern offset (-04:00 for EDT summer time)
+    matchDate = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:00-04:00`);
+  } else {
+    matchDate = new Date(game.date);
+  }
+
   return {
     id: game.id,
     homeTeam,
     awayTeam,
-    date: new Date(game.date),
+    date: matchDate,
     stage,
     group: game.group || undefined,
     venue: stadium?.name_en || stadium?.fifa_name || "A definir",

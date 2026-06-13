@@ -7,6 +7,7 @@ import { MatchCard } from "./match-card";
 import { Switcher } from "./switcher";
 import { GroupStandings } from "./group-standings";
 import { KnockoutMatchCard } from "./knockout-match-card";
+import { MobileTabSelect } from "./mobile-tab-select";
 import { getKnockoutMatchesByStage } from "@/lib/knockout-structure";
 
 interface MatchCalendarProps {
@@ -24,17 +25,17 @@ type KnockoutStage = "round32" | "round16" | "quarter" | "semi" | "final";
 const groupLabels = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
 
 const timeFilterOptions = [
-  { value: "past" as const, label: "Jogos Passados" },
-  { value: "today" as const, label: "Jogos de Hoje" },
-  { value: "upcoming" as const, label: "Próximos Jogos" },
+  { value: "past" as const, label: "Jogos Passados", mobileLabel: "Passados" },
+  { value: "today" as const, label: "Jogos de Hoje", mobileLabel: "Hoje" },
+  { value: "upcoming" as const, label: "Próximos Jogos", mobileLabel: "Próximos" },
 ];
 
 const knockoutStageOptions = [
-  { value: "round32" as const, label: "16 Avos de Final" },
-  { value: "round16" as const, label: "Oitavas de Final" },
-  { value: "quarter" as const, label: "Quartas de Final" },
-  { value: "semi" as const, label: "Semifinal" },
-  { value: "final" as const, label: "Final" },
+  { value: "round32" as const, label: "16 Avos de Final", mobileLabel: "16ªs" },
+  { value: "round16" as const, label: "Oitavas de Final", mobileLabel: "8ªs" },
+  { value: "quarter" as const, label: "Quartas de Final", mobileLabel: "4ªs" },
+  { value: "semi" as const, label: "Semifinal", mobileLabel: "Semi" },
+  { value: "final" as const, label: "Final", mobileLabel: "Final" },
 ];
 
 function isSameDay(date1: Date, date2: Date): boolean {
@@ -65,7 +66,7 @@ export function MatchCalendar({
   className 
 }: MatchCalendarProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>("upcoming");
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("today");
   const [knockoutStage, setKnockoutStage] = useState<KnockoutStage>("round32");
 
   const today = useMemo(() => new Date(), []);
@@ -118,9 +119,11 @@ export function MatchCalendar({
   return (
     <div className={cn("space-y-10", className)}>
       {/* Header with title and view mode buttons */}
-      <div className="flex items-start justify-between gap-4">
-        <h1 className="text-2xl font-bold">{title}</h1>
-        <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-xl sm:text-2xl font-bold">{title}</h1>
+        
+        {/* Desktop view modes */}
+        <div className="hidden sm:flex items-center gap-2 shrink-0">
           <button
             onClick={() => setViewMode("list")}
             className={cn(
@@ -130,7 +133,7 @@ export function MatchCalendar({
                 : "border border-white/40 text-muted-foreground hover:text-foreground hover:border-white/70"
             )}
           >
-            Cronológico
+            Por Data
           </button>
           <button
             onClick={() => setViewMode("groups")}
@@ -155,11 +158,24 @@ export function MatchCalendar({
             Mata-Mata
           </button>
         </div>
+
+        {/* Mobile view modes */}
+        <div className="sm:hidden">
+          <MobileTabSelect
+            value={viewMode}
+            onChange={(value) => setViewMode(value as ViewMode)}
+            options={[
+              { value: "list", label: "Por Data" },
+              { value: "groups", label: "Por Grupo" },
+              { value: "knockout", label: "Mata-Mata" },
+            ]}
+          />
+        </div>
       </div>
 
       {/* Subtitle + Time filter (only in list view) */}
       {viewMode === "list" && (
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col gap-3">
           {subtitle && (
             <p className="text-muted-foreground text-center">{subtitle}</p>
           )}
@@ -167,6 +183,7 @@ export function MatchCalendar({
             options={timeFilterOptions}
             value={timeFilter}
             onChange={setTimeFilter}
+            fullWidth
           />
         </div>
       )}
@@ -237,7 +254,7 @@ export function MatchCalendar({
       {viewMode === "knockout" && (
         <>
           {/* Subtitle + Stage filter */}
-          <div className="flex flex-col items-center gap-3">
+          <div className="flex flex-col gap-3">
             <p className="text-muted-foreground text-center">
               Acompanhe os jogos da fase mata-mata da Copa!
             </p>
@@ -245,6 +262,7 @@ export function MatchCalendar({
               options={knockoutStageOptions}
               value={knockoutStage}
               onChange={setKnockoutStage}
+              fullWidth
             />
           </div>
 

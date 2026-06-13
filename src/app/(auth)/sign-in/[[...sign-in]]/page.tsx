@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 export default function SignInPage() {
-  const { signIn, errors, fetchStatus } = useSignIn();
+  const { signIn, fetchStatus } = useSignIn();
   const { isSignedIn } = useAuth();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (isSignedIn) {
@@ -19,6 +20,7 @@ export default function SignInPage() {
   const handleGoogleSignIn = async () => {
     if (!signIn) return;
     setIsLoading(true);
+    setErrorMessage(null);
 
     try {
       const { error } = await signIn.sso({
@@ -29,10 +31,12 @@ export default function SignInPage() {
       
       if (error) {
         console.error("Error signing in with Google:", error);
+        setErrorMessage("Erro ao fazer login. Tente novamente.");
         setIsLoading(false);
       }
     } catch (err) {
       console.error("Error signing in with Google:", err);
+      setErrorMessage("Erro ao fazer login. Tente novamente.");
       setIsLoading(false);
     }
   };
@@ -42,26 +46,13 @@ export default function SignInPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background">
       <div className="w-full max-w-sm space-y-8">
-        {/* Logo */}
+        {/* Header */}
         <div className="text-center">
-          <div className="flex items-center justify-center gap-1 mb-4">
-            <span className="w-8 h-8 rounded-full border-2 border-foreground flex items-center justify-center text-sm font-bold">
-              W
-            </span>
-            <span className="w-8 h-8 rounded-full border-2 border-foreground flex items-center justify-center text-sm font-bold">
-              C
-            </span>
-            <span className="w-8 h-8 rounded-full border-2 border-foreground flex items-center justify-center text-sm font-bold">
-              2
-            </span>
-            <span className="w-8 h-8 rounded-full border-2 border-foreground flex items-center justify-center text-sm font-bold">
-              6
-            </span>
-          </div>
-          <h1 className="text-2xl font-bold">Bem-vindo ao WC26</h1>
-          <p className="text-muted-foreground mt-2">
-            Entre para fazer seus palpites da Copa
-          </p>
+          <h1 className="text-2xl font-bold leading-relaxed">
+            Acesse o<br />
+            ⚽ Bolão Copa 2026<br />
+            e divirta-se :)
+          </h1>
         </div>
 
         {/* Sign In Card */}
@@ -101,24 +92,12 @@ export default function SignInPage() {
             )}
           </button>
           
-          {errors && (
+          {errorMessage && (
             <p className="mt-3 text-sm text-destructive text-center">
-              {JSON.stringify(errors)}
+              {errorMessage}
             </p>
           )}
         </div>
-
-        {/* Footer */}
-        <p className="text-center text-xs text-muted-foreground">
-          Ao continuar, você concorda com nossos{" "}
-          <a href="/termos" className="underline hover:text-foreground">
-            Termos de Uso
-          </a>{" "}
-          e{" "}
-          <a href="/privacidade" className="underline hover:text-foreground">
-            Política de Privacidade
-          </a>
-        </p>
       </div>
     </div>
   );

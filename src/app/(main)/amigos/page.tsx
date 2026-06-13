@@ -29,9 +29,9 @@ export default function AmigosPage() {
           placeholder="Buscar amigo..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="flex-1 px-4 py-2 bg-muted rounded-xl border-none focus:outline-none focus:ring-2 focus:ring-foreground"
+          className="flex-1 px-4 h-12 text-base bg-muted rounded-lg border-none focus:outline-none focus:ring-2 focus:ring-foreground"
         />
-        <Button>Adicionar</Button>
+        <Button className="h-12 px-6 text-base rounded-full">Adicionar</Button>
       </div>
 
       {/* Friend Requests */}

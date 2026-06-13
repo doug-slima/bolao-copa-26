@@ -41,51 +41,24 @@ function transformUser(row: any): DbUser {
   };
 }
 
-export async function getOrCreateUser(
-  clerkId: string,
-  name: string,
-  avatarUrl?: string
-): Promise<DbUser | null> {
-  const { data: existing } = await supabase
-    .from("users")
-    .select("*")
-    .eq("clerk_id", clerkId)
-    .single();
+export async function syncUser(): Promise<DbUser | null> {
+  try {
+    const response = await fetch("/api/users", {
+      method: "POST",
+    });
 
-  if (existing) {
-    if (existing.name !== name || existing.avatar_url !== avatarUrl) {
-      const { data: updated } = await supabase
-        .from("users")
-        .update({
-          name,
-          avatar_url: avatarUrl || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("clerk_id", clerkId)
-        .select()
-        .single();
-
-      return updated ? transformUser(updated) : transformUser(existing);
+    const data = await response.json();
+    
+    if (!response.ok || !data.success) {
+      console.error("Error syncing user:", data.error);
+      return null;
     }
-    return transformUser(existing);
-  }
 
-  const { data: created, error } = await supabase
-    .from("users")
-    .insert({
-      clerk_id: clerkId,
-      name,
-      avatar_url: avatarUrl || null,
-    })
-    .select()
-    .single();
-
-  if (error) {
-    console.error("Error creating user:", error);
+    return transformUser(data.user);
+  } catch (error) {
+    console.error("Error syncing user:", error);
     return null;
   }
-
-  return transformUser(created);
 }
 
 export async function getUserByClerkId(clerkId: string): Promise<DbUser | null> {
@@ -173,45 +146,6 @@ export async function getLeagueRanking(leagueId: string): Promise<UserRankingExt
     uniqueExactPredictions: 0,
     closeCallMisses: 0,
   }));
-}
-
-export async function updateUserStats(
-  clerkId: string,
-  stats: Partial<{
-    totalPoints: number;
-    exactPredictions: number;
-    correctResults: number;
-    correctFirstScorers: number;
-    totalPredictions: number;
-    challengeWins: number;
-    challengeLosses: number;
-    currentStreak: number;
-    bestStreak: number;
-  }>
-): Promise<{ success: boolean; error?: string }> {
-  const updateData: any = { updated_at: new Date().toISOString() };
-
-  if (stats.totalPoints !== undefined) updateData.total_points = stats.totalPoints;
-  if (stats.exactPredictions !== undefined) updateData.exact_predictions = stats.exactPredictions;
-  if (stats.correctResults !== undefined) updateData.correct_results = stats.correctResults;
-  if (stats.correctFirstScorers !== undefined) updateData.correct_first_scorers = stats.correctFirstScorers;
-  if (stats.totalPredictions !== undefined) updateData.total_predictions = stats.totalPredictions;
-  if (stats.challengeWins !== undefined) updateData.challenge_wins = stats.challengeWins;
-  if (stats.challengeLosses !== undefined) updateData.challenge_losses = stats.challengeLosses;
-  if (stats.currentStreak !== undefined) updateData.current_streak = stats.currentStreak;
-  if (stats.bestStreak !== undefined) updateData.best_streak = stats.bestStreak;
-
-  const { error } = await supabase
-    .from("users")
-    .update(updateData)
-    .eq("clerk_id", clerkId);
-
-  if (error) {
-    console.error("Error updating user stats:", error);
-    return { success: false, error: "Erro ao atualizar estatísticas." };
-  }
-
-  return { success: true };
 }
 
 export function subscribeToRanking(callback: (rankings: UserRankingExtended[]) => void) {

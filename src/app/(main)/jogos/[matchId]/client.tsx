@@ -1,15 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { SignInButton } from "@clerk/nextjs";
-import { SneakerMove } from "@phosphor-icons/react";
+import { useRouter } from "next/navigation";
+import { SneakerMove, Fire, ArrowLeft, Prohibit } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
-import { PredictionForm, TeamFlag } from "@/components/bolao";
+import { PredictionForm, ChallengeForm, TeamFlag, MatchStatsCard } from "@/components/bolao";
 import type { Match, Prediction } from "@/types";
-import { getPrediction } from "@/lib/predictions-store";
+import { getPrediction } from "@/lib/db/predictions";
 import { isPredictionDeadlinePassed } from "@/lib/scoring";
-import { cn } from "@/lib/utils";
 
 interface MatchDetailClientProps {
   match: Match;
@@ -17,12 +17,37 @@ interface MatchDetailClientProps {
 
 export function MatchDetailClient({ match }: MatchDetailClientProps) {
   const { isSignedIn, userId } = useAuth();
+  const router = useRouter();
   const [predictionOpen, setPredictionOpen] = useState(false);
-  const [currentPrediction, setCurrentPrediction] = useState<Prediction | null>(
-    userId ? getPrediction(match.id, userId) : null
-  );
+  const [challengeOpen, setChallengeOpen] = useState(false);
+  const [currentPrediction, setCurrentPrediction] = useState<Prediction | null>(null);
+
+  useEffect(() => {
+    if (userId) {
+      getPrediction(match.id, userId).then((prediction) => {
+        if (prediction) {
+          setCurrentPrediction({
+            id: prediction.id,
+            matchId: prediction.matchId,
+            userId: prediction.userId,
+            homeScore: prediction.homeScore,
+            awayScore: prediction.awayScore,
+            firstToScore: prediction.firstToScore,
+            createdAt: prediction.createdAt,
+            updatedAt: prediction.updatedAt || undefined,
+          });
+        }
+      });
+    }
+  }, [userId, match.id]);
 
   const isLocked = isPredictionDeadlinePassed(match.date);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const matchDay = new Date(match.date);
+  matchDay.setHours(0, 0, 0, 0);
+  const isPastMatch = matchDay.getTime() < today.getTime();
 
   const formattedDate = new Intl.DateTimeFormat("pt-BR", {
     weekday: "long",
@@ -40,8 +65,21 @@ export function MatchDetailClient({ match }: MatchDetailClientProps) {
     setCurrentPrediction(prediction);
   };
 
+  const handleChallenge = () => {
+    setChallengeOpen(true);
+  };
+
   return (
     <div className="max-w-2xl mx-auto space-y-6">
+      {/* Back Button */}
+      <button
+        onClick={() => router.back()}
+        className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ArrowLeft size={20} weight="bold" />
+        <span className="text-sm font-medium">Voltar</span>
+      </button>
+
       {/* Match Header */}
       <div className="bg-card rounded-2xl border border-border/50 p-6">
         {/* Stage badge */}
@@ -62,20 +100,28 @@ export function MatchDetailClient({ match }: MatchDetailClientProps) {
             <p className="text-sm text-muted-foreground">{match.homeTeam.code}</p>
           </div>
 
-          {/* VS or Score */}
+          {/* Score */}
           <div className="shrink-0">
-            {match.score ? (
+            {isPastMatch || match.status === "live" ? (
               <div className="flex items-center gap-3 bg-muted rounded-2xl px-6 py-3">
                 <span className="text-4xl font-bold tabular-nums">
-                  {match.score.home}
+                  {match.score?.home ?? 0}
                 </span>
                 <span className="text-2xl text-muted-foreground">-</span>
                 <span className="text-4xl font-bold tabular-nums">
-                  {match.score.away}
+                  {match.score?.away ?? 0}
                 </span>
               </div>
             ) : (
-              <div className="text-2xl font-bold text-muted-foreground">vs</div>
+              <div className="flex items-center gap-3 bg-muted rounded-2xl px-6 py-3">
+                <span className="text-4xl font-bold tabular-nums text-muted-foreground">
+                  ?
+                </span>
+                <span className="text-2xl text-muted-foreground">-</span>
+                <span className="text-4xl font-bold tabular-nums text-muted-foreground">
+                  ?
+                </span>
+              </div>
             )}
           </div>
 
@@ -101,73 +147,144 @@ export function MatchDetailClient({ match }: MatchDetailClientProps) {
         </div>
       </div>
 
-      {/* Current Prediction Display */}
-      {currentPrediction && (
-        <div className="bg-card rounded-2xl border border-border/50 p-6">
-          <div className="text-center space-y-4">
-            <h3 className="font-semibold">Seu Chute</h3>
-            <div className="flex items-center justify-center gap-4">
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">{match.homeTeam.code}</p>
-                <p className="text-3xl font-bold">{currentPrediction.homeScore}</p>
-              </div>
-              <span className="text-xl text-muted-foreground">×</span>
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">{match.awayTeam.code}</p>
-                <p className="text-3xl font-bold">{currentPrediction.awayScore}</p>
+      {isLocked ? (
+        <>
+          {/* Danger Pill - Locked */}
+          <div className="flex justify-center">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-500 rounded-lg text-sm">
+              <Prohibit size={16} weight="bold" />
+              <span>Chutes e desafios encerrados para este jogo.</span>
+            </div>
+          </div>
+
+          {/* User's Prediction Card (if exists) */}
+          {currentPrediction && (
+            <div className="bg-card rounded-2xl border border-border/50 p-6">
+              <div className="text-center space-y-4">
+                <SneakerMove size={36} weight="duotone" className="mx-auto" />
+                <p className="text-foreground font-medium">Seu Chute</p>
+                <div className="flex items-center justify-center gap-4">
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground">{match.homeTeam.code}</p>
+                    <p className="text-3xl font-bold">{currentPrediction.homeScore}</p>
+                  </div>
+                  <span className="text-xl text-muted-foreground">×</span>
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground">{match.awayTeam.code}</p>
+                    <p className="text-3xl font-bold">{currentPrediction.awayScore}</p>
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Primeiro a marcar:{" "}
+                  <span className="font-medium text-foreground">
+                    {currentPrediction.firstToScore === "home"
+                      ? match.homeTeam.name
+                      : currentPrediction.firstToScore === "away"
+                        ? match.awayTeam.name
+                        : "Nenhum (0×0)"}
+                  </span>
+                </p>
               </div>
             </div>
-            <p className="text-sm text-muted-foreground">
-              Primeiro a marcar:{" "}
-              <span className="font-medium text-foreground">
-                {currentPrediction.firstToScore === "home"
-                  ? match.homeTeam.name
-                  : currentPrediction.firstToScore === "away"
-                    ? match.awayTeam.name
-                    : "Nenhum (0×0)"}
-              </span>
-            </p>
-            {!isLocked && (
-              <Button
-                variant="outline"
-                onClick={() => setPredictionOpen(true)}
-                className="rounded-full"
-              >
-                Editar Chute
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* Prediction CTA */}
-      {!currentPrediction && (
-        <div className="bg-card rounded-2xl border border-border/50 p-6">
-          <div className="text-center space-y-4">
-            <SneakerMove size={40} weight="duotone" className="mx-auto text-primary" />
-            <h3 className="font-semibold">Faça seu Chute!</h3>
-            <p className="text-sm text-muted-foreground">
-              {isLocked
-                ? "O prazo para chutes neste jogo já encerrou."
-                : "Dê seu palpite para este jogo e ganhe pontos!"}
-            </p>
-            {!isSignedIn ? (
-              <SignInButton mode="modal">
-                <Button className="rounded-full">
-                  Entrar para Chutar
-                </Button>
-              </SignInButton>
-            ) : !isLocked ? (
-              <Button
-                onClick={() => setPredictionOpen(true)}
-                className="rounded-full"
-              >
-                <SneakerMove size={20} weight="bold" className="mr-2" />
-                Fazer Chute
-              </Button>
-            ) : null}
+          {/* No Prediction Message */}
+          {!currentPrediction && isSignedIn && (
+            <div className="bg-card rounded-2xl border border-border/50 p-6">
+              <div className="text-center space-y-2">
+                <SneakerMove size={36} weight="duotone" className="mx-auto text-muted-foreground" />
+                <p className="text-muted-foreground">Você não fez um chute para este jogo.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Match Stats Card */}
+          <MatchStatsCard match={match} userLeagueId={null} />
+        </>
+      ) : (
+        <>
+          {/* CTA Cards */}
+          <div className="grid gap-6 sm:grid-cols-2">
+            {/* Chute Card */}
+            <div className="bg-card rounded-2xl border border-border/50 p-6">
+              <div className="text-center space-y-4">
+                <SneakerMove size={36} weight="duotone" className="mx-auto" />
+                {currentPrediction ? (
+                  <>
+                    <p className="text-foreground">Seu Chute</p>
+                    <div className="flex items-center justify-center gap-3">
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground">{match.homeTeam.code}</p>
+                        <p className="text-2xl font-bold">{currentPrediction.homeScore}</p>
+                      </div>
+                      <span className="text-lg text-muted-foreground">×</span>
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground">{match.awayTeam.code}</p>
+                        <p className="text-2xl font-bold">{currentPrediction.awayScore}</p>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => setPredictionOpen(true)}
+                      className="rounded-full w-full h-12 text-base"
+                    >
+                      Editar Chute
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-foreground">Dê seu chute e ganhe pontos.</p>
+                    {!isSignedIn ? (
+                      <SignInButton mode="modal">
+                        <Button className="rounded-full w-full h-12 text-base">
+                          Entrar para Chutar
+                        </Button>
+                      </SignInButton>
+                    ) : (
+                      <Button
+                        onClick={() => setPredictionOpen(true)}
+                        className="rounded-full w-full h-12 text-base"
+                      >
+                        Fazer Chute
+                      </Button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Desafio Card */}
+            <div className="bg-card rounded-2xl border border-border/50 p-6">
+              <div className="text-center space-y-4">
+                <Fire size={36} weight="duotone" className="mx-auto" />
+                <p className="text-foreground">
+                  Desafie seus amigos neste jogo.
+                </p>
+                {!isSignedIn ? (
+                  <SignInButton mode="modal">
+                    <Button className="rounded-full w-full h-12 text-base">
+                      Entrar para Desafiar
+                    </Button>
+                  </SignInButton>
+                ) : (
+                  <Button
+                    onClick={handleChallenge}
+                    className="rounded-full w-full h-12 text-base"
+                  >
+                    Criar Desafio
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
+
+          {/* Disclaimer */}
+          <div className="flex justify-center">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-500/10 text-yellow-500 rounded-lg text-sm">
+              <span>⚠️</span>
+              <span>Chutes e desafios aceitos até 5min antes do jogo.</span>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Prediction Form Dialog */}
@@ -177,6 +294,15 @@ export function MatchDetailClient({ match }: MatchDetailClientProps) {
           open={predictionOpen}
           onOpenChange={setPredictionOpen}
           onSave={handlePredictionSave}
+        />
+      )}
+
+      {/* Challenge Form Dialog */}
+      {isSignedIn && (
+        <ChallengeForm
+          match={match}
+          open={challengeOpen}
+          onOpenChange={setChallengeOpen}
         />
       )}
     </div>

@@ -2,8 +2,8 @@ import { MatchCalendar } from "@/components/bolao";
 import { getAllMatches, getGroupStandings, USE_API } from "@/lib/api";
 
 export const metadata = {
-  title: "Calendário - WC26",
-  description: "Calendário de jogos da Copa do Mundo 2026",
+  title: "Jogos - WC26",
+  description: "Jogos da Copa do Mundo 2026",
 };
 
 export const revalidate = 300; // Revalidate every 5 minutes
@@ -20,7 +20,7 @@ export default async function JogosPage() {
     <MatchCalendar 
       matches={matches}
       standings={standings}
-      title="Calendário"
+      title="Jogos"
       subtitle={subtitle}
     />
   );

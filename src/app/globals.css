@@ -209,6 +209,16 @@
   .tab-indicator[data-active="true"]::after {
     @apply scale-x-100;
   }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* ============================================
@@ -236,6 +246,24 @@
   }
 }
 
+@keyframes marquee-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(calc(-100% - 24px));
+  }
+}
+
+.marquee-container {
+  width: max-content;
+}
+
+.animate-marquee-scroll {
+  animation: marquee-scroll 80s linear infinite;
+  will-change: transform;
+}
+
 .animate-fade-in {
   animation: fade-in 0.3s ease-out;
 }
@@ -243,6 +271,7 @@
 .animate-slide-up {
   animation: slide-up 0.3s ease-out;
 }
+
 
 /* ============================================
    SCROLLBAR (subtle)

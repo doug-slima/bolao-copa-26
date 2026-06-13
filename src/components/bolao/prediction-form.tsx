@@ -3,12 +3,8 @@
 import { useState, useEffect } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { Plus, Minus, Clock, Check, X } from "@phosphor-icons/react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { VisuallyHidden } from "radix-ui";
 import { Button } from "@/components/ui/button";
 import { TeamFlag } from "./team-flag";
 import { cn } from "@/lib/utils";
@@ -79,7 +75,7 @@ export function PredictionForm({
   useEffect(() => {
     if (homeScore === 0 && awayScore === 0) {
       setFirstToScore("none");
-    } else if (firstToScore === "none" && (homeScore > 0 || awayScore > 0)) {
+    } else if (firstToScore === "none") {
       setFirstToScore("home");
     }
   }, [homeScore, awayScore, firstToScore]);
@@ -96,9 +92,6 @@ export function PredictionForm({
     const result = await dbSavePrediction(
       {
         matchId: match.id,
-        userId,
-        userName: user.fullName || user.firstName || "Usuário",
-        userAvatarUrl: user.imageUrl,
         homeScore,
         awayScore,
         firstToScore,
@@ -133,7 +126,7 @@ export function PredictionForm({
   const handleDelete = async () => {
     if (!userId) return;
 
-    const result = await dbDeletePrediction(match.id, userId, match.date);
+    const result = await dbDeletePrediction(match.id, match.date);
     if (result.success) {
       setExistingPrediction(null);
       setHomeScore(0);
@@ -177,13 +170,10 @@ export function PredictionForm({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle className="text-center">
-            {existingPrediction ? "Editar Chute" : "Fazer Chute"}
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-6 pt-4">
+        <VisuallyHidden.Root>
+          <DialogTitle>Fazer Chute</DialogTitle>
+        </VisuallyHidden.Root>
+        <div className="space-y-6">
           {/* Match Info */}
           <div className="text-center space-y-1">
             <p className="text-sm text-muted-foreground capitalize">
@@ -196,7 +186,7 @@ export function PredictionForm({
           <div className="flex justify-center">
             <div
               className={cn(
-                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm",
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm",
                 isLocked
                   ? "bg-destructive/10 text-destructive"
                   : "bg-primary/10 text-primary"
@@ -280,13 +270,15 @@ export function PredictionForm({
           </div>
 
           {/* First to Score */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <p className="text-sm font-medium text-center">Primeiro a marcar</p>
-            <div className="flex justify-center gap-2">
+            <div className="flex justify-center gap-3">
               <Button
                 variant={firstToScore === "home" ? "default" : "outline"}
-                size="sm"
-                className="rounded-full"
+                className={cn(
+                  "rounded-full h-10 px-5",
+                  firstToScore !== "home" && "!border-white/40 hover:!border-white/70"
+                )}
                 onClick={() => !isLocked && setFirstToScore("home")}
                 disabled={isLocked || noGoals}
               >
@@ -294,48 +286,60 @@ export function PredictionForm({
               </Button>
               <Button
                 variant={firstToScore === "away" ? "default" : "outline"}
-                size="sm"
-                className="rounded-full"
+                className={cn(
+                  "rounded-full h-10 px-5",
+                  firstToScore !== "away" && "!border-white/40 hover:!border-white/70"
+                )}
                 onClick={() => !isLocked && setFirstToScore("away")}
                 disabled={isLocked || noGoals}
               >
                 {match.awayTeam.code}
               </Button>
-              <Button
-                variant={firstToScore === "none" ? "default" : "outline"}
-                size="sm"
-                className="rounded-full"
-                onClick={() => !isLocked && setFirstToScore("none")}
-                disabled={isLocked || !noGoals}
-              >
-                0 × 0
-              </Button>
             </div>
           </div>
 
-          {/* Points Preview */}
-          <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-            <p className="text-sm font-medium text-center">
-              Pontuação possível
-            </p>
-            <div className="grid grid-cols-3 gap-2 text-center text-xs">
-              <div>
-                <p className="text-muted-foreground">Placar exato</p>
-                <p className="font-bold">
-                  {POINTS.EXACT_SCORE.shared}-{POINTS.EXACT_SCORE.unique} pts
-                </p>
+          {/* Scoring Rules */}
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-center">Regras de pontuação:</p>
+            <div className="grid grid-cols-3 gap-3 text-xs">
+              <div className="text-center space-y-2">
+                <p className="font-medium">Placar exato</p>
+                <div className="space-y-3">
+                  <div className="bg-muted rounded-lg px-2 py-1">
+                    <p className="text-muted-foreground">Acerto único:</p>
+                    <p className="font-bold">{POINTS.EXACT_SCORE.unique}pts</p>
+                  </div>
+                  <div className="bg-muted rounded-lg px-2 py-1">
+                    <p className="text-muted-foreground">Compartilhado:</p>
+                    <p className="font-bold">{POINTS.EXACT_SCORE.shared}pts</p>
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-muted-foreground">Resultado</p>
-                <p className="font-bold">
-                  {POINTS.RESULT.shared}-{POINTS.RESULT.unique} pts
-                </p>
+              <div className="text-center space-y-2">
+                <p className="font-medium">Resultado</p>
+                <div className="space-y-3">
+                  <div className="bg-muted rounded-lg px-2 py-1">
+                    <p className="text-muted-foreground">Acerto único:</p>
+                    <p className="font-bold">{POINTS.RESULT.unique}pts</p>
+                  </div>
+                  <div className="bg-muted rounded-lg px-2 py-1">
+                    <p className="text-muted-foreground">Compartilhado:</p>
+                    <p className="font-bold">{POINTS.RESULT.shared}pts</p>
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-muted-foreground">1º a marcar</p>
-                <p className="font-bold">
-                  {POINTS.FIRST_SCORER.shared}-{POINTS.FIRST_SCORER.unique} pts
-                </p>
+              <div className="text-center space-y-2">
+                <p className="font-medium">1º a marcar</p>
+                <div className="space-y-3">
+                  <div className="bg-muted rounded-lg px-2 py-1">
+                    <p className="text-muted-foreground">Acerto único:</p>
+                    <p className="font-bold">{POINTS.FIRST_SCORER.unique}pts</p>
+                  </div>
+                  <div className="bg-muted rounded-lg px-2 py-1">
+                    <p className="text-muted-foreground">Compartilhado:</p>
+                    <p className="font-bold">{POINTS.FIRST_SCORER.shared}pt</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -360,7 +364,7 @@ export function PredictionForm({
             {existingPrediction && !isLocked && (
               <Button
                 variant="outline"
-                className="flex-1"
+                className="flex-1 h-12 text-base rounded-full"
                 onClick={handleDelete}
                 disabled={saving}
               >
@@ -368,17 +372,11 @@ export function PredictionForm({
               </Button>
             )}
             <Button
-              className="flex-1"
+              className="flex-1 h-12 text-base rounded-full"
               onClick={handleSave}
               disabled={isLocked || saving || success}
             >
-              {saving
-                ? "Salvando..."
-                : submitButtonText
-                  ? submitButtonText
-                  : existingPrediction
-                    ? "Atualizar Chute"
-                    : "Salvar Chute"}
+              {saving ? "Salvando..." : "Fazer Chute"}
             </Button>
           </div>
         </div>

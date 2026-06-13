@@ -2,13 +2,9 @@
 
 import { supabase } from "@/lib/supabase";
 import type { FirstToScore } from "@/types";
-import { isPredictionDeadlinePassed } from "@/lib/scoring";
 
 export interface PredictionInput {
   matchId: string;
-  userId: string;
-  userName: string;
-  userAvatarUrl?: string;
   homeScore: number;
   awayScore: number;
   firstToScore: FirstToScore;
@@ -48,58 +44,30 @@ export async function savePrediction(
   input: PredictionInput,
   matchDate: Date
 ): Promise<{ success: boolean; prediction?: DbPrediction; error?: string }> {
-  if (isPredictionDeadlinePassed(matchDate)) {
-    return { success: false, error: "O prazo para chutes neste jogo já encerrou." };
-  }
+  try {
+    const response = await fetch("/api/predictions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        matchId: input.matchId,
+        homeScore: input.homeScore,
+        awayScore: input.awayScore,
+        firstToScore: input.firstToScore,
+        matchDate: matchDate.toISOString(),
+      }),
+    });
 
-  const { data: existing } = await supabase
-    .from("predictions")
-    .select("id")
-    .eq("match_id", input.matchId)
-    .eq("user_id", input.userId)
-    .single();
-
-  if (existing) {
-    const { data, error } = await supabase
-      .from("predictions")
-      .update({
-        home_score: input.homeScore,
-        away_score: input.awayScore,
-        first_to_score: input.firstToScore,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", existing.id)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Error updating prediction:", error);
-      return { success: false, error: "Erro ao atualizar chute." };
+    const data = await response.json();
+    
+    if (!response.ok || !data.success) {
+      return { success: false, error: data.error || "Erro ao salvar chute." };
     }
 
-    return { success: true, prediction: transformPrediction(data) };
-  }
-
-  const { data, error } = await supabase
-    .from("predictions")
-    .insert({
-      match_id: input.matchId,
-      user_id: input.userId,
-      user_name: input.userName,
-      user_avatar_url: input.userAvatarUrl || null,
-      home_score: input.homeScore,
-      away_score: input.awayScore,
-      first_to_score: input.firstToScore,
-    })
-    .select()
-    .single();
-
-  if (error) {
+    return { success: true, prediction: transformPrediction(data.prediction) };
+  } catch (error) {
     console.error("Error saving prediction:", error);
-    return { success: false, error: "Erro ao salvar chute." };
+    return { success: false, error: "Erro de conexão. Tente novamente." };
   }
-
-  return { success: true, prediction: transformPrediction(data) };
 }
 
 export async function getPrediction(
@@ -150,25 +118,25 @@ export async function getMatchPredictions(matchId: string): Promise<DbPrediction
 
 export async function deletePrediction(
   matchId: string,
-  userId: string,
   matchDate: Date
 ): Promise<{ success: boolean; error?: string }> {
-  if (isPredictionDeadlinePassed(matchDate)) {
-    return { success: false, error: "O prazo para modificar chutes já encerrou." };
-  }
+  try {
+    const response = await fetch(
+      `/api/predictions?matchId=${encodeURIComponent(matchId)}&matchDate=${encodeURIComponent(matchDate.toISOString())}`,
+      { method: "DELETE" }
+    );
 
-  const { error } = await supabase
-    .from("predictions")
-    .delete()
-    .eq("match_id", matchId)
-    .eq("user_id", userId);
+    const data = await response.json();
+    
+    if (!response.ok || !data.success) {
+      return { success: false, error: data.error || "Erro ao remover chute." };
+    }
 
-  if (error) {
+    return { success: true };
+  } catch (error) {
     console.error("Error deleting prediction:", error);
-    return { success: false, error: "Erro ao remover chute." };
+    return { success: false, error: "Erro de conexão. Tente novamente." };
   }
-
-  return { success: true };
 }
 
 export function subscribeToPredictions(
@@ -195,4 +163,102 @@ export function subscribeToPredictions(
   return () => {
     supabase.removeChannel(channel);
   };
+}
+
+// Stats Types
+export interface MatchPredictionStats {
+  totalPredictions: number;
+  mostPopularScore: {
+    homeScore: number;
+    awayScore: number;
+    count: number;
+  } | null;
+}
+
+export interface PredictionRankingEntry {
+  userId: string;
+  userName: string;
+  userAvatarUrl: string | null;
+  points: number;
+  homeScore: number;
+  awayScore: number;
+}
+
+// Stats Functions
+export async function getMatchPredictionStats(
+  matchId: string,
+  leagueId?: string
+): Promise<MatchPredictionStats> {
+  let query = supabase
+    .from("predictions")
+    .select("home_score, away_score")
+    .eq("match_id", matchId);
+
+  // If leagueId provided, filter by league members (would need a join)
+  // For now, we get all predictions for the match
+
+  const { data, error } = await query;
+
+  if (error || !data || data.length === 0) {
+    return {
+      totalPredictions: 0,
+      mostPopularScore: null,
+    };
+  }
+
+  // Count scores to find most popular
+  const scoreCounts = new Map<string, { homeScore: number; awayScore: number; count: number }>();
+  
+  for (const pred of data) {
+    const key = `${pred.home_score}-${pred.away_score}`;
+    const existing = scoreCounts.get(key);
+    if (existing) {
+      existing.count++;
+    } else {
+      scoreCounts.set(key, {
+        homeScore: pred.home_score,
+        awayScore: pred.away_score,
+        count: 1,
+      });
+    }
+  }
+
+  // Find most popular
+  let mostPopular: { homeScore: number; awayScore: number; count: number } | null = null;
+  for (const entry of scoreCounts.values()) {
+    if (!mostPopular || entry.count > mostPopular.count) {
+      mostPopular = entry;
+    }
+  }
+
+  return {
+    totalPredictions: data.length,
+    mostPopularScore: mostPopular,
+  };
+}
+
+export async function getMatchPredictionRanking(
+  matchId: string,
+  leagueId?: string
+): Promise<PredictionRankingEntry[]> {
+  const { data, error } = await supabase
+    .from("predictions")
+    .select("user_id, user_name, user_avatar_url, home_score, away_score, points_total")
+    .eq("match_id", matchId)
+    .not("points_total", "is", null)
+    .order("points_total", { ascending: false })
+    .limit(10);
+
+  if (error || !data) {
+    return [];
+  }
+
+  return data.map((row) => ({
+    userId: row.user_id,
+    userName: row.user_name,
+    userAvatarUrl: row.user_avatar_url,
+    points: row.points_total || 0,
+    homeScore: row.home_score,
+    awayScore: row.away_score,
+  }));
 }

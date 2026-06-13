@@ -242,7 +242,7 @@ function RoundHeader({ children, className }: RoundHeaderProps) {
   return (
     <div
       className={cn(
-        "bg-primary text-primary-foreground text-xs font-medium px-3 py-1.5 rounded mb-2",
+        "bg-primary text-primary-foreground text-xs font-medium px-3 py-1.5 rounded-lg mb-2",
         className
       )}
     >
@@ -290,7 +290,7 @@ function MatchBox({ match, variant = "default", reversed }: MatchBoxProps) {
         <span className="text-muted-foreground">{formattedDate}</span>
         <span
           className={cn(
-            "font-bold px-1.5 py-0.5 rounded text-xs",
+            "font-bold px-1.5 py-0.5 rounded-lg text-xs",
             isFinal && "bg-yellow-500 text-yellow-950",
             isThird && "bg-orange-500 text-orange-950",
             !isFinal && !isThird && "bg-primary text-primary-foreground"

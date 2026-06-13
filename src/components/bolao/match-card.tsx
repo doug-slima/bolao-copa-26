@@ -65,29 +65,31 @@ export function MatchCard({
               </span>
             </div>
             
-            {match.score ? (
-              <div className="flex items-center gap-1 px-2 py-1 bg-muted rounded-lg">
-                <span className="text-sm font-bold tabular-nums">
-                  {match.score.home}
-                </span>
-                <span className="text-muted-foreground text-xs">-</span>
-                <span className="text-sm font-bold tabular-nums">
-                  {match.score.away}
-                </span>
-              </div>
-            ) : match.status === "live" ? (
+            {match.status === "live" ? (
               <span className="flex items-center gap-1 text-xs text-green-500 px-2">
                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
                 AO VIVO
               </span>
             ) : isPastMatch ? (
-              <span className="text-xs text-muted-foreground px-2">
-                Sem chute
-              </span>
+              <div className="flex items-center gap-1 px-2 py-1 bg-muted rounded-lg">
+                <span className="text-sm font-bold tabular-nums">
+                  {match.score?.home ?? 0}
+                </span>
+                <span className="text-muted-foreground text-xs">-</span>
+                <span className="text-sm font-bold tabular-nums">
+                  {match.score?.away ?? 0}
+                </span>
+              </div>
             ) : (
-              <span className="text-xs text-muted-foreground px-2">
-                {formattedTime}
-              </span>
+              <div className="flex items-center gap-1 px-2 py-1 bg-muted rounded-lg">
+                <span className="text-sm font-bold tabular-nums text-muted-foreground">
+                  ?
+                </span>
+                <span className="text-muted-foreground text-xs">-</span>
+                <span className="text-sm font-bold tabular-nums text-muted-foreground">
+                  ?
+                </span>
+              </div>
             )}
             
             <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
@@ -154,46 +156,54 @@ export function MatchCard({
         </div>
 
         {/* Teams */}
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-2 sm:gap-4">
           {/* Home Team */}
-          <div className="flex-1 flex items-center gap-3">
-            <TeamFlag flag={match.homeTeam.flag} name={match.homeTeam.name} size="lg" />
+          <div className="flex-1 flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="shrink-0">
+              <TeamFlag flag={match.homeTeam.flag} name={match.homeTeam.name} size="md" className="sm:hidden" />
+              <TeamFlag flag={match.homeTeam.flag} name={match.homeTeam.name} size="lg" className="hidden sm:block" />
+            </div>
             <div className="min-w-0">
-              <p className="font-medium truncate">{match.homeTeam.name}</p>
-              <p className="text-xs text-muted-foreground">{match.homeTeam.code}</p>
+              <p className="font-medium truncate text-sm sm:text-base">{match.homeTeam.name}</p>
+              <p className="text-xs text-muted-foreground hidden sm:block">{match.homeTeam.code}</p>
             </div>
           </div>
 
-          {/* Score or VS */}
+          {/* Score */}
           <div className="shrink-0">
-            {match.score ? (
-              <div className="flex items-center gap-2 bg-muted rounded-xl px-4 py-2">
-                <span className="text-2xl font-bold tabular-nums">
-                  {match.score.home}
+            {isPastMatch || match.status === "live" ? (
+              <div className="flex items-center gap-1.5 sm:gap-2 bg-muted rounded-xl px-3 sm:px-4 py-1.5 sm:py-2">
+                <span className="text-xl sm:text-2xl font-bold tabular-nums">
+                  {match.score?.home ?? 0}
                 </span>
                 <span className="text-muted-foreground">-</span>
-                <span className="text-2xl font-bold tabular-nums">
-                  {match.score.away}
+                <span className="text-xl sm:text-2xl font-bold tabular-nums">
+                  {match.score?.away ?? 0}
                 </span>
               </div>
-            ) : isPastMatch ? (
-              <div className="text-xs font-medium text-muted-foreground bg-muted rounded-xl px-4 py-2 text-center">
-                Nenhum chute<br />registrado
-              </div>
             ) : (
-              <div className="text-sm font-medium text-muted-foreground bg-muted rounded-xl px-4 py-2">
-                vs
+              <div className="flex items-center gap-1.5 sm:gap-2 bg-muted rounded-xl px-3 sm:px-4 py-1.5 sm:py-2">
+                <span className="text-xl sm:text-2xl font-bold tabular-nums text-muted-foreground">
+                  ?
+                </span>
+                <span className="text-muted-foreground">-</span>
+                <span className="text-xl sm:text-2xl font-bold tabular-nums text-muted-foreground">
+                  ?
+                </span>
               </div>
             )}
           </div>
 
           {/* Away Team */}
-          <div className="flex-1 flex items-center gap-3 justify-end">
+          <div className="flex-1 flex items-center gap-2 sm:gap-3 justify-end min-w-0">
             <div className="min-w-0 text-right">
-              <p className="font-medium truncate">{match.awayTeam.name}</p>
-              <p className="text-xs text-muted-foreground">{match.awayTeam.code}</p>
+              <p className="font-medium truncate text-sm sm:text-base">{match.awayTeam.name}</p>
+              <p className="text-xs text-muted-foreground hidden sm:block">{match.awayTeam.code}</p>
             </div>
-            <TeamFlag flag={match.awayTeam.flag} name={match.awayTeam.name} size="lg" />
+            <div className="shrink-0">
+              <TeamFlag flag={match.awayTeam.flag} name={match.awayTeam.name} size="md" className="sm:hidden" />
+              <TeamFlag flag={match.awayTeam.flag} name={match.awayTeam.name} size="lg" className="hidden sm:block" />
+            </div>
           </div>
         </div>
 

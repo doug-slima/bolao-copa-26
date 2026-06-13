@@ -5,8 +5,6 @@ import type { ChallengeStatus, ChallengeWinner } from "@/types";
 
 export interface ChallengeInput {
   matchId: string;
-  challengerId: string;
-  challengerName: string;
   challengedId: string;
   challengedName: string;
 }
@@ -48,37 +46,28 @@ function transformChallenge(row: any): DbChallenge {
 export async function createChallenge(
   input: ChallengeInput
 ): Promise<{ success: boolean; challenge?: DbChallenge; error?: string }> {
-  const { data: existing } = await supabase
-    .from("challenges")
-    .select("id")
-    .eq("match_id", input.matchId)
-    .eq("challenger_id", input.challengerId)
-    .eq("challenged_id", input.challengedId)
-    .single();
+  try {
+    const response = await fetch("/api/challenges", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        matchId: input.matchId,
+        challengedId: input.challengedId,
+        challengedName: input.challengedName,
+      }),
+    });
 
-  if (existing) {
-    return { success: false, error: "Você já desafiou este amigo neste jogo." };
-  }
+    const data = await response.json();
+    
+    if (!response.ok || !data.success) {
+      return { success: false, error: data.error || "Erro ao criar desafio." };
+    }
 
-  const { data, error } = await supabase
-    .from("challenges")
-    .insert({
-      match_id: input.matchId,
-      challenger_id: input.challengerId,
-      challenger_name: input.challengerName,
-      challenged_id: input.challengedId,
-      challenged_name: input.challengedName,
-      status: "pending",
-    })
-    .select()
-    .single();
-
-  if (error) {
+    return { success: true, challenge: transformChallenge(data.challenge) };
+  } catch (error) {
     console.error("Error creating challenge:", error);
-    return { success: false, error: "Erro ao criar desafio." };
+    return { success: false, error: "Erro de conexão. Tente novamente." };
   }
-
-  return { success: true, challenge: transformChallenge(data) };
 }
 
 export async function getChallengeById(id: string): Promise<DbChallenge | null> {
@@ -127,38 +116,53 @@ export async function getPendingChallengesForUser(userId: string): Promise<DbCha
 export async function acceptChallenge(
   challengeId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const { error } = await supabase
-    .from("challenges")
-    .update({
-      status: "accepted",
-      accepted_at: new Date().toISOString(),
-    })
-    .eq("id", challengeId);
+  try {
+    const response = await fetch("/api/challenges", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        challengeId,
+        action: "accept",
+      }),
+    });
 
-  if (error) {
+    const data = await response.json();
+    
+    if (!response.ok || !data.success) {
+      return { success: false, error: data.error || "Erro ao aceitar desafio." };
+    }
+
+    return { success: true };
+  } catch (error) {
     console.error("Error accepting challenge:", error);
-    return { success: false, error: "Erro ao aceitar desafio." };
+    return { success: false, error: "Erro de conexão. Tente novamente." };
   }
-
-  return { success: true };
 }
 
 export async function declineChallenge(
   challengeId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const { error } = await supabase
-    .from("challenges")
-    .update({
-      status: "declined",
-    })
-    .eq("id", challengeId);
+  try {
+    const response = await fetch("/api/challenges", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        challengeId,
+        action: "decline",
+      }),
+    });
 
-  if (error) {
+    const data = await response.json();
+    
+    if (!response.ok || !data.success) {
+      return { success: false, error: data.error || "Erro ao recusar desafio." };
+    }
+
+    return { success: true };
+  } catch (error) {
     console.error("Error declining challenge:", error);
-    return { success: false, error: "Erro ao recusar desafio." };
+    return { success: false, error: "Erro de conexão. Tente novamente." };
   }
-
-  return { success: true };
 }
 
 export async function completeChallenge(
@@ -220,4 +224,23 @@ export function subscribeToChallenges(
   return () => {
     supabase.removeChannel(channel);
   };
+}
+
+// Stats Functions
+export async function getMatchChallengeCount(
+  matchId: string,
+  leagueId?: string
+): Promise<number> {
+  const { count, error } = await supabase
+    .from("challenges")
+    .select("*", { count: "exact", head: true })
+    .eq("match_id", matchId)
+    .in("status", ["pending", "accepted", "completed"]);
+
+  if (error) {
+    console.error("Error getting challenge count:", error);
+    return 0;
+  }
+
+  return count || 0;
 }

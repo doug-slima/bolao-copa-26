@@ -8,7 +8,7 @@ import { TeamFlag } from "./team-flag";
 import { PredictionForm } from "./prediction-form";
 import { Badge } from "@/components/ui/badge";
 import type { Match, Prediction } from "@/types";
-import { getPrediction } from "@/lib/predictions-store";
+import { getPrediction } from "@/lib/db/predictions";
 import { getTimeUntilDeadline, isPredictionDeadlinePassed } from "@/lib/scoring";
 
 interface MatchCardWithPredictionProps {
@@ -33,8 +33,20 @@ export function MatchCardWithPrediction({
 
   useEffect(() => {
     if (mounted && userId) {
-      const existing = getPrediction(match.id, userId);
-      setPrediction(existing);
+      getPrediction(match.id, userId).then((existing) => {
+        if (existing) {
+          setPrediction({
+            id: existing.id,
+            matchId: existing.matchId,
+            userId: existing.userId,
+            homeScore: existing.homeScore,
+            awayScore: existing.awayScore,
+            firstToScore: existing.firstToScore,
+            createdAt: existing.createdAt,
+            updatedAt: existing.updatedAt || undefined,
+          });
+        }
+      });
     }
   }, [mounted, userId, match.id]);
 
@@ -91,7 +103,7 @@ export function MatchCardWithPrediction({
         )}
       >
         {/* Header with Status */}
-        <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+        <div className="px-3 sm:px-4 pt-3 sm:pt-4 pb-2 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">
               {match.group ? `Grupo ${match.group}` : match.stage}
@@ -109,17 +121,18 @@ export function MatchCardWithPrediction({
               {hasExistingPrediction ? (
                 <Badge
                   variant="secondary"
-                  className="bg-green-500/10 text-green-600 border-green-500/20"
+                  className="rounded-lg bg-green-500/10 text-green-600 border-green-500/20 text-[10px] sm:text-xs"
                 >
                   <Check weight="bold" className="w-3 h-3 mr-1" />
-                  Chute feito
+                  <span className="hidden xs:inline">Chute feito</span>
+                  <span className="xs:hidden">Feito</span>
                 </Badge>
               ) : isLocked ? (
-                <Badge variant="secondary" className="text-muted-foreground">
+                <Badge variant="secondary" className="rounded-lg text-muted-foreground text-[10px] sm:text-xs">
                   Encerrado
                 </Badge>
               ) : (
-                <Badge variant="outline" className="text-primary border-primary/30">
+                <Badge variant="outline" className="rounded-lg text-primary border-primary/30 text-[10px] sm:text-xs">
                   <Clock weight="bold" className="w-3 h-3 mr-1" />
                   {deadline.formatted}
                 </Badge>
@@ -129,25 +142,34 @@ export function MatchCardWithPrediction({
         </div>
 
         {/* Date/Time */}
-        <div className="px-4 pb-3">
+        <div className="px-3 sm:px-4 pb-2 sm:pb-3">
           <p className="text-xs text-muted-foreground capitalize">
             {formattedDate} • {formattedTime}
           </p>
         </div>
 
         {/* Teams */}
-        <div className="px-4 pb-4">
-          <div className="flex items-center justify-between gap-4">
+        <div className="px-3 sm:px-4 pb-3 sm:pb-4">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
             {/* Home Team */}
-            <div className="flex-1 flex items-center gap-3">
-              <TeamFlag
-                flag={match.homeTeam.flag}
-                name={match.homeTeam.name}
-                size="lg"
-              />
+            <div className="flex-1 flex items-center gap-2 sm:gap-3 min-w-0">
+              <div className="shrink-0">
+                <TeamFlag
+                  flag={match.homeTeam.flag}
+                  name={match.homeTeam.name}
+                  size="md"
+                  className="sm:hidden"
+                />
+                <TeamFlag
+                  flag={match.homeTeam.flag}
+                  name={match.homeTeam.name}
+                  size="lg"
+                  className="hidden sm:flex"
+                />
+              </div>
               <div className="min-w-0">
-                <p className="font-medium truncate">{match.homeTeam.name}</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="font-medium truncate text-sm sm:text-base">{match.homeTeam.name}</p>
+                <p className="text-xs text-muted-foreground hidden sm:block">
                   {match.homeTeam.code}
                 </p>
               </div>
@@ -156,23 +178,23 @@ export function MatchCardWithPrediction({
             {/* Score/Prediction Preview */}
             <div className="shrink-0">
               {match.score ? (
-                <div className="flex items-center gap-2 bg-muted rounded-xl px-4 py-2">
-                  <span className="text-2xl font-bold tabular-nums">
+                <div className="flex items-center gap-1.5 sm:gap-2 bg-muted rounded-xl px-3 sm:px-4 py-1.5 sm:py-2">
+                  <span className="text-xl sm:text-2xl font-bold tabular-nums">
                     {match.score.home}
                   </span>
                   <span className="text-muted-foreground">-</span>
-                  <span className="text-2xl font-bold tabular-nums">
+                  <span className="text-xl sm:text-2xl font-bold tabular-nums">
                     {match.score.away}
                   </span>
                 </div>
               ) : mounted && hasExistingPrediction ? (
-                <div className="flex flex-col items-center bg-primary/10 rounded-xl px-4 py-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl font-bold tabular-nums text-primary">
+                <div className="flex flex-col items-center bg-primary/10 rounded-xl px-3 sm:px-4 py-1.5 sm:py-2">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <span className="text-lg sm:text-xl font-bold tabular-nums text-primary">
                       {prediction.homeScore}
                     </span>
                     <span className="text-primary/60">-</span>
-                    <span className="text-xl font-bold tabular-nums text-primary">
+                    <span className="text-lg sm:text-xl font-bold tabular-nums text-primary">
                       {prediction.awayScore}
                     </span>
                   </div>
@@ -181,12 +203,12 @@ export function MatchCardWithPrediction({
                   </span>
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center bg-muted rounded-xl px-4 py-2 min-w-[80px]">
+                <div className="flex flex-col items-center justify-center bg-muted rounded-xl px-3 sm:px-4 py-1.5 sm:py-2 min-w-[70px] sm:min-w-[80px]">
                   {isSignedIn && !isLocked ? (
                     <>
-                      <SneakerMove className="w-5 h-5 text-muted-foreground mb-0.5" />
+                      <SneakerMove className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground mb-0.5" />
                       <span className="text-[10px] text-muted-foreground font-medium">
-                        Fazer chute
+                        Chutar
                       </span>
                     </>
                   ) : (
@@ -199,28 +221,38 @@ export function MatchCardWithPrediction({
             </div>
 
             {/* Away Team */}
-            <div className="flex-1 flex items-center gap-3 justify-end">
+            <div className="flex-1 flex items-center gap-2 sm:gap-3 justify-end min-w-0">
               <div className="min-w-0 text-right">
-                <p className="font-medium truncate">{match.awayTeam.name}</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="font-medium truncate text-sm sm:text-base">{match.awayTeam.name}</p>
+                <p className="text-xs text-muted-foreground hidden sm:block">
                   {match.awayTeam.code}
                 </p>
               </div>
-              <TeamFlag
-                flag={match.awayTeam.flag}
-                name={match.awayTeam.name}
-                size="lg"
-              />
+              <div className="shrink-0">
+                <TeamFlag
+                  flag={match.awayTeam.flag}
+                  name={match.awayTeam.name}
+                  size="md"
+                  className="sm:hidden"
+                />
+                <TeamFlag
+                  flag={match.awayTeam.flag}
+                  name={match.awayTeam.name}
+                  size="lg"
+                  className="hidden sm:flex"
+                />
+              </div>
             </div>
           </div>
         </div>
 
         {/* Prediction Details (if exists) */}
         {mounted && hasExistingPrediction && (
-          <div className="px-4 pb-4">
-            <div className="flex items-center justify-center gap-4 text-xs">
+          <div className="px-3 sm:px-4 pb-3 sm:pb-4">
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 text-xs">
               <div className="flex items-center gap-1.5 text-muted-foreground">
-                <span>Resultado:</span>
+                <span className="hidden xs:inline">Resultado:</span>
+                <span className="xs:hidden">R:</span>
                 <span className="font-medium text-foreground">
                   {getResultLabel()}
                 </span>
@@ -237,8 +269,8 @@ export function MatchCardWithPrediction({
         )}
 
         {/* Footer */}
-        <div className="px-4 py-3 border-t border-border/50">
-          <p className="text-xs text-muted-foreground text-center">
+        <div className="px-3 sm:px-4 py-2 sm:py-3 border-t border-border/50">
+          <p className="text-[10px] sm:text-xs text-muted-foreground text-center truncate">
             {match.venue && match.venue !== "A definir"
               ? `${match.venue}${match.city ? ` • ${match.city}` : ""}`
               : "Local a confirmar"}

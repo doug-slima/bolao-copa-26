@@ -5,8 +5,6 @@ import { supabase } from "@/lib/supabase";
 export interface LeagueInput {
   name: string;
   description?: string;
-  createdBy: string;
-  createdByName: string;
 }
 
 export interface DbLeague {
@@ -27,15 +25,6 @@ export interface DbLeagueMember {
   userName: string;
   userAvatarUrl: string | null;
   joinedAt: Date;
-}
-
-function generateInviteCode(): string {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let code = "";
-  for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
 }
 
 function transformLeague(row: any, memberCount: number = 0): DbLeague {
@@ -65,38 +54,27 @@ function transformMember(row: any): DbLeagueMember {
 export async function createLeague(
   input: LeagueInput
 ): Promise<{ success: boolean; league?: DbLeague; error?: string }> {
-  const inviteCode = generateInviteCode();
-
-  const { data: league, error: leagueError } = await supabase
-    .from("leagues")
-    .insert({
-      name: input.name,
-      description: input.description || null,
-      invite_code: inviteCode,
-      created_by: input.createdBy,
-      created_by_name: input.createdByName,
-    })
-    .select()
-    .single();
-
-  if (leagueError) {
-    console.error("Error creating league:", leagueError);
-    return { success: false, error: "Erro ao criar liga." };
-  }
-
-  const { error: memberError } = await supabase
-    .from("league_members")
-    .insert({
-      league_id: league.id,
-      user_id: input.createdBy,
-      user_name: input.createdByName,
+  try {
+    const response = await fetch("/api/leagues", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: input.name,
+        description: input.description,
+      }),
     });
 
-  if (memberError) {
-    console.error("Error adding creator as member:", memberError);
-  }
+    const data = await response.json();
+    
+    if (!response.ok || !data.success) {
+      return { success: false, error: data.error || "Erro ao criar liga." };
+    }
 
-  return { success: true, league: transformLeague(league, 1) };
+    return { success: true, league: transformLeague(data.league, 1) };
+  } catch (error) {
+    console.error("Error creating league:", error);
+    return { success: false, error: "Erro de conexão. Tente novamente." };
+  }
 }
 
 export async function getLeagueById(id: string): Promise<DbLeague | null> {
@@ -173,44 +151,26 @@ export async function getUserLeagues(userId: string): Promise<DbLeague[]> {
 }
 
 export async function joinLeague(
-  inviteCode: string,
-  userId: string,
-  userName: string,
-  userAvatarUrl?: string
+  inviteCode: string
 ): Promise<{ success: boolean; league?: DbLeague; error?: string }> {
-  const league = await getLeagueByInviteCode(inviteCode);
-
-  if (!league) {
-    return { success: false, error: "Código de convite inválido." };
-  }
-
-  const { data: existing } = await supabase
-    .from("league_members")
-    .select("id")
-    .eq("league_id", league.id)
-    .eq("user_id", userId)
-    .single();
-
-  if (existing) {
-    return { success: false, error: "Você já faz parte desta liga." };
-  }
-
-  const { error } = await supabase
-    .from("league_members")
-    .insert({
-      league_id: league.id,
-      user_id: userId,
-      user_name: userName,
-      user_avatar_url: userAvatarUrl || null,
+  try {
+    const response = await fetch("/api/leagues/join", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inviteCode }),
     });
 
-  if (error) {
-    console.error("Error joining league:", error);
-    return { success: false, error: "Erro ao entrar na liga." };
-  }
+    const data = await response.json();
+    
+    if (!response.ok || !data.success) {
+      return { success: false, error: data.error || "Erro ao entrar na liga." };
+    }
 
-  const updatedLeague = await getLeagueById(league.id);
-  return { success: true, league: updatedLeague || league };
+    return { success: true, league: transformLeague(data.league) };
+  } catch (error) {
+    console.error("Error joining league:", error);
+    return { success: false, error: "Erro de conexão. Tente novamente." };
+  }
 }
 
 export async function leaveLeague(
@@ -229,6 +189,27 @@ export async function leaveLeague(
   }
 
   return { success: true };
+}
+
+export async function deleteLeague(
+  leagueId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(`/api/leagues/${leagueId}`, {
+      method: "DELETE",
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok || !data.success) {
+      return { success: false, error: data.error || "Erro ao deletar liga." };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting league:", error);
+    return { success: false, error: "Erro de conexão. Tente novamente." };
+  }
 }
 
 export async function getLeagueMembers(leagueId: string): Promise<DbLeagueMember[]> {

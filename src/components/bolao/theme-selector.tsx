@@ -16,11 +16,11 @@ export function ThemeSelector({ className }: ThemeSelectorProps) {
       {/* Color Mode */}
       <div>
         <h4 className="text-sm font-medium mb-3">Modo de cor</h4>
-        <div className="flex items-center bg-muted rounded-lg p-1">
+        <div className="flex items-center bg-muted rounded-full p-1">
           <button
             onClick={() => setColorMode("light")}
             className={cn(
-              "flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors flex items-center justify-center gap-2",
+              "flex-1 px-3 py-2 text-sm font-medium rounded-full transition-colors flex items-center justify-center gap-2",
               colorMode === "light"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -35,7 +35,7 @@ export function ThemeSelector({ className }: ThemeSelectorProps) {
           <button
             onClick={() => setColorMode("dark")}
             className={cn(
-              "flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors flex items-center justify-center gap-2",
+              "flex-1 px-3 py-2 text-sm font-medium rounded-full transition-colors flex items-center justify-center gap-2",
               colorMode === "dark"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -49,7 +49,7 @@ export function ThemeSelector({ className }: ThemeSelectorProps) {
           <button
             onClick={() => setColorMode("system")}
             className={cn(
-              "flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors flex items-center justify-center gap-2",
+              "flex-1 px-3 py-2 text-sm font-medium rounded-full transition-colors flex items-center justify-center gap-2",
               colorMode === "system"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"

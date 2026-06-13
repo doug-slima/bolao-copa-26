@@ -9,8 +9,7 @@ import {
   Ticket,
   CheckCircle,
   Copy,
-  Share,
-  Crown,
+  FlagBanner,
   WhatsappLogo,
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
@@ -22,12 +21,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { LeagueCard } from "@/components/bolao/league-card";
+import { MobileTabSelect } from "@/components/bolao/mobile-tab-select";
 import { cn } from "@/lib/utils";
 import type { League } from "@/types";
 import {
   getUserLeagues as dbGetUserLeagues,
   createLeague as dbCreateLeague,
   joinLeague as dbJoinLeague,
+  deleteLeague as dbDeleteLeague,
+  leaveLeague as dbLeaveLeague,
   type DbLeague,
 } from "@/lib/db/leagues";
 
@@ -79,12 +81,7 @@ export function LigasPageClient() {
     setJoinError(null);
     setJoining(true);
     
-    const result = await dbJoinLeague(
-      joinCode.trim(),
-      userId,
-      user.fullName || user.firstName || "Usuário",
-      user.imageUrl
-    );
+    const result = await dbJoinLeague(joinCode.trim());
 
     setJoining(false);
 
@@ -107,8 +104,6 @@ export function LigasPageClient() {
     const result = await dbCreateLeague({
       name: leagueName,
       description: leagueDescription || undefined,
-      createdBy: userId,
-      createdByName: user.fullName || user.firstName || "Você",
     });
 
     setCreating(false);
@@ -131,18 +126,6 @@ export function LigasPageClient() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleShare = () => {
-    if (!createdLeague) return;
-    const text = `Entre na minha liga "${createdLeague.name}" no Bolão Copa 26! Use o código: ${createdLeague.inviteCode}`;
-    if (navigator.share) {
-      navigator.share({ text });
-    } else {
-      navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
   const handleShareWhatsApp = () => {
     if (!createdLeague) return;
     const text = `Entre na minha liga "${createdLeague.name}" no Bolão Copa 26! 🏆⚽\n\nUse o código: *${createdLeague.inviteCode}*`;
@@ -154,6 +137,21 @@ export function LigasPageClient() {
     setShowSuccessModal(false);
     setCreatedLeague(null);
     setTabMode("minhas");
+  };
+
+  const handleDeleteLeague = async (leagueId: string) => {
+    const result = await dbDeleteLeague(leagueId);
+    if (result.success) {
+      refreshLeagues();
+    }
+  };
+
+  const handleLeaveLeague = async (leagueId: string) => {
+    if (!userId) return;
+    const result = await dbLeaveLeague(leagueId, userId);
+    if (result.success) {
+      refreshLeagues();
+    }
   };
 
   if (!mounted) {
@@ -191,9 +189,11 @@ export function LigasPageClient() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Ligas</h1>
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-xl sm:text-2xl font-bold">Ligas</h1>
+        
+        {/* Desktop tabs */}
+        <div className="hidden sm:flex items-center gap-2">
           {(["minhas", "criar"] as const).map((tab) => (
             <button
               key={tab}
@@ -209,6 +209,18 @@ export function LigasPageClient() {
               {tab === "criar" && "Criar Liga"}
             </button>
           ))}
+        </div>
+
+        {/* Mobile tabs */}
+        <div className="sm:hidden">
+          <MobileTabSelect
+            value={tabMode}
+            onChange={(value) => setTabMode(value as TabMode)}
+            options={[
+              { value: "minhas", label: "Minhas Ligas" },
+              { value: "criar", label: "Criar Liga" },
+            ]}
+          />
         </div>
       </div>
 
@@ -236,7 +248,7 @@ export function LigasPageClient() {
               </div>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <Input
                 placeholder="Ex: ABC123"
                 value={joinCode}
@@ -244,11 +256,15 @@ export function LigasPageClient() {
                   setJoinCode(e.target.value.toUpperCase());
                   setJoinError(null);
                 }}
-                className="flex-1 uppercase"
+                className="flex-1 uppercase h-12 text-base"
                 maxLength={6}
               />
-              <Button onClick={handleJoinLeague} disabled={!joinCode.trim() || joining}>
-                {joining ? "Entrando..." : "Entrar"}
+              <Button 
+                onClick={handleJoinLeague} 
+                disabled={!joinCode.trim() || joining}
+                className="h-12 px-6 text-base rounded-full w-full sm:w-auto"
+              >
+                {joining ? "Entrando..." : "Entrar na Liga"}
               </Button>
             </div>
 
@@ -273,7 +289,7 @@ export function LigasPageClient() {
             </div>
           ) : userLeagues.length > 0 ? (
             <div className="space-y-4">
-              <h2 className="text-lg font-semibold">Suas Ligas</h2>
+              <h2 className="text-lg font-semibold">Ligas Ativas</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {userLeagues.map((league) => (
                   <LeagueCard
@@ -288,18 +304,25 @@ export function LigasPageClient() {
                       memberCount: league.memberCount,
                       createdAt: league.createdAt,
                     }}
+                    currentUserId={userId}
                     userPosition={null}
+                    onDelete={handleDeleteLeague}
+                    onLeave={handleLeaveLeague}
                   />
                 ))}
               </div>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-12 gap-4">
-              <Users size={48} className="text-muted-foreground" />
+              <FlagBanner size={48} className="text-muted-foreground" />
               <p className="text-muted-foreground text-center">
                 Você ainda não participa de nenhuma liga
               </p>
-              <Button variant="outline" onClick={() => setTabMode("criar")}>
+              <Button 
+                variant="outline" 
+                onClick={() => setTabMode("criar")}
+                className="h-12 px-6 text-base rounded-full"
+              >
                 <Plus size={16} className="mr-2" />
                 Criar uma Liga
               </Button>
@@ -322,7 +345,7 @@ export function LigasPageClient() {
           <div className="bg-card border border-border/50 rounded-2xl p-6 max-w-lg mx-auto">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <Crown size={20} className="text-primary" />
+                <FlagBanner size={20} className="text-primary" />
               </div>
               <div>
                 <h3 className="font-semibold">Nova Liga</h3>
@@ -345,6 +368,7 @@ export function LigasPageClient() {
                     setCreateError(null);
                   }}
                   maxLength={50}
+                  className="h-12 text-base"
                 />
               </div>
 
@@ -357,6 +381,7 @@ export function LigasPageClient() {
                   value={leagueDescription}
                   onChange={(e) => setLeagueDescription(e.target.value)}
                   maxLength={100}
+                  className="h-12 text-base"
                 />
               </div>
 
@@ -365,8 +390,7 @@ export function LigasPageClient() {
               )}
 
               <Button
-                className="w-full"
-                size="lg"
+                className="w-full h-12 text-base rounded-full"
                 onClick={handleCreateLeague}
                 disabled={!leagueName.trim() || creating}
               >
@@ -403,27 +427,20 @@ export function LigasPageClient() {
 
             <div className="flex flex-col gap-3 w-full">
               <Button
-                className="w-full bg-[#25D366] hover:bg-[#20BD5A] text-white"
-                size="lg"
+                className="w-full h-12 text-base rounded-full bg-[#25D366] hover:bg-[#20BD5A] text-white"
                 onClick={handleShareWhatsApp}
               >
                 <WhatsappLogo size={20} weight="fill" className="mr-2" />
                 Compartilhar no WhatsApp
               </Button>
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={handleCopyCode}
-                >
-                  <Copy size={16} className="mr-2" />
-                  {copied ? "Copiado!" : "Copiar"}
-                </Button>
-                <Button variant="outline" className="flex-1" onClick={handleShare}>
-                  <Share size={16} className="mr-2" />
-                  Outros
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                className="w-full h-12 text-base rounded-full"
+                onClick={handleCopyCode}
+              >
+                <Copy size={18} className="mr-2" />
+                {copied ? "Copiado!" : "Copiar Código"}
+              </Button>
             </div>
 
             <Button variant="ghost" onClick={closeSuccessModal}>

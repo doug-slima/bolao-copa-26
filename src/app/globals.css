@@ -293,3 +293,31 @@
 ::-webkit-scrollbar-thumb:hover {
   background: var(--muted-foreground);
 }
+
+/* ============================================
+   CLERK OVERRIDES (mobile fix)
+   ============================================ */
+.cl-rootBox,
+.cl-card,
+.cl-userButtonPopoverCard,
+.cl-userButtonPopoverActions,
+.cl-userButtonPopoverFooter {
+  z-index: 9999 !important;
+}
+
+.cl-userButtonPopoverCard {
+  pointer-events: auto !important;
+}
+
+.cl-modalContent,
+.cl-modalBackdrop {
+  z-index: 9999 !important;
+}
+
+/* Fix touch events on mobile for Clerk components */
+.cl-userButtonTrigger,
+.cl-userButtonPopoverActionButton,
+.cl-signOutButton {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}

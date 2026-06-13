@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { formatMatchTime, formatMatchDate, isBeforeDayBrazil, getNowBrazil } from "@/lib/date-utils";
 import { Match } from "@/types";
 import { TeamFlag } from "./team-flag";
 import { YoutubeLogo, SneakerMove, Check } from "@phosphor-icons/react";
@@ -35,21 +36,9 @@ export function MatchCard({
   const handleCardClick = () => {
     router.push(`/jogos/${match.id}`);
   };
-  const formattedTime = new Intl.DateTimeFormat("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(match.date);
-
-  const formattedDate = new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "short",
-  }).format(match.date);
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const matchDay = new Date(match.date);
-  matchDay.setHours(0, 0, 0, 0);
-  const isPastMatch = matchDay.getTime() < today.getTime();
+  const formattedTime = formatMatchTime(match.date);
+  const formattedDate = formatMatchDate(match.date);
+  const isPastMatch = isBeforeDayBrazil(match.date, getNowBrazil());
 
   if (compact) {
     return (

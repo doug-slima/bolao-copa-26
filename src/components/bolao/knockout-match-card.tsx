@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { formatMatchTime, formatMatchDate } from "@/lib/date-utils";
 import { Match } from "@/types";
 import { KnockoutMatchDefinition } from "@/lib/knockout-structure";
 import { TeamFlag } from "./team-flag";
@@ -17,17 +18,9 @@ export function KnockoutMatchCard({
   actualMatch,
   className,
 }: KnockoutMatchCardProps) {
-  const matchDate = new Date(`${definition.date}T${definition.time}:00`);
-
-  const formattedTime = new Intl.DateTimeFormat("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(matchDate);
-
-  const formattedDate = new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "short",
-  }).format(matchDate);
+  const matchDate = new Date(`${definition.date}T${definition.time}:00-03:00`);
+  const formattedTime = formatMatchTime(matchDate);
+  const formattedDate = formatMatchDate(matchDate);
 
   const hasTeams = actualMatch?.homeTeam?.name !== "A definir" && actualMatch?.awayTeam?.name !== "A definir";
   const isLive = actualMatch?.status === "live";

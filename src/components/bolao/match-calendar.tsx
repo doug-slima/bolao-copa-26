@@ -3,6 +3,14 @@
 import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
+import { 
+  isSameDayBrazil, 
+  isBeforeDayBrazil, 
+  isAfterDayBrazil, 
+  getBrazilDateKey,
+  formatWeekdayDateLong,
+  getNowBrazil 
+} from "@/lib/date-utils";
 import { Match, GroupStanding } from "@/types";
 import { MatchCard } from "./match-card";
 import { Switcher } from "./switcher";
@@ -41,26 +49,6 @@ const knockoutStageOptions = [
   { value: "final" as const, label: "Final", mobileLabel: "Final" },
 ];
 
-function isSameDay(date1: Date, date2: Date): boolean {
-  return (
-    date1.getFullYear() === date2.getFullYear() &&
-    date1.getMonth() === date2.getMonth() &&
-    date1.getDate() === date2.getDate()
-  );
-}
-
-function isBeforeDay(date: Date, reference: Date): boolean {
-  const d1 = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const d2 = new Date(reference.getFullYear(), reference.getMonth(), reference.getDate());
-  return d1 < d2;
-}
-
-function isAfterDay(date: Date, reference: Date): boolean {
-  const d1 = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const d2 = new Date(reference.getFullYear(), reference.getMonth(), reference.getDate());
-  return d1 > d2;
-}
-
 export function MatchCalendar({ 
   matches, 
   standings,
@@ -75,7 +63,7 @@ export function MatchCalendar({
   const [predictionCounts, setPredictionCounts] = useState<Record<string, number>>({});
   const [userPredictions, setUserPredictions] = useState<Record<string, { homeScore: number; awayScore: number }>>({});
 
-  const today = useMemo(() => new Date(), []);
+  const today = useMemo(() => getNowBrazil(), []);
 
   useEffect(() => {
     if (!userId) return;
@@ -108,13 +96,13 @@ export function MatchCalendar({
   const filteredMatches = useMemo(() => {
     let result = [...matches];
 
-    // Filter by time
+    // Filter by time (using Brazil timezone)
     if (timeFilter === "past") {
-      result = result.filter((m) => isBeforeDay(m.date, today));
+      result = result.filter((m) => isBeforeDayBrazil(m.date, today));
     } else if (timeFilter === "today") {
-      result = result.filter((m) => isSameDay(m.date, today));
+      result = result.filter((m) => isSameDayBrazil(m.date, today));
     } else if (timeFilter === "upcoming") {
-      result = result.filter((m) => isAfterDay(m.date, today));
+      result = result.filter((m) => isAfterDayBrazil(m.date, today));
     }
 
     // Sort by date
@@ -127,11 +115,15 @@ export function MatchCalendar({
   }, [matches, timeFilter, today]);
 
   const matchesByDate = useMemo(() => {
-    const grouped = new Map<string, Match[]>();
+    const grouped = new Map<string, { date: Date; matches: Match[] }>();
     filteredMatches.forEach((match) => {
-      const dateKey = match.date.toDateString();
-      const existing = grouped.get(dateKey) || [];
-      grouped.set(dateKey, [...existing, match]);
+      const dateKey = getBrazilDateKey(match.date);
+      const existing = grouped.get(dateKey);
+      if (existing) {
+        existing.matches.push(match);
+      } else {
+        grouped.set(dateKey, { date: match.date, matches: [match] });
+      }
     });
     return grouped;
   }, [filteredMatches]);
@@ -225,17 +217,13 @@ export function MatchCalendar({
       {/* List View */}
       {viewMode === "list" && (
         <div className="space-y-8">
-          {Array.from(matchesByDate.entries()).map(([dateKey, dayMatches]) => (
+          {Array.from(matchesByDate.entries()).map(([dateKey, { date, matches: dayMatches }]) => (
             <div key={dateKey}>
               <h3 className="text-sm font-medium text-muted-foreground mb-3 sticky top-14 bg-background/80 backdrop-blur-sm py-2 -mx-1 px-1">
-                {isSameDay(new Date(dateKey), today) ? (
+                {isSameDayBrazil(date, today) ? (
                   <span className="text-foreground font-semibold">Hoje</span>
                 ) : (
-                  new Intl.DateTimeFormat("pt-BR", {
-                    weekday: "long",
-                    day: "numeric",
-                    month: "long",
-                  }).format(new Date(dateKey))
+                  formatWeekdayDateLong(date)
                 )}
               </h3>
               <div className="flex flex-col gap-6">

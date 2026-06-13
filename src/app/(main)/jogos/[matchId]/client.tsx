@@ -10,6 +10,7 @@ import { PredictionForm, ChallengeForm, TeamFlag, MatchStatsCard } from "@/compo
 import type { Match, Prediction } from "@/types";
 import { getPrediction } from "@/lib/db/predictions";
 import { isPredictionDeadlinePassed } from "@/lib/scoring";
+import { formatFullDate, formatMatchTime, isBeforeDayBrazil, getNowBrazil } from "@/lib/date-utils";
 
 interface MatchDetailClientProps {
   match: Match;
@@ -43,23 +44,9 @@ export function MatchDetailClient({ match }: MatchDetailClientProps) {
 
   const isLocked = isPredictionDeadlinePassed(match.date);
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const matchDay = new Date(match.date);
-  matchDay.setHours(0, 0, 0, 0);
-  const isPastMatch = matchDay.getTime() < today.getTime();
-
-  const formattedDate = new Intl.DateTimeFormat("pt-BR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(match.date);
-
-  const formattedTime = new Intl.DateTimeFormat("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(match.date);
+  const isPastMatch = isBeforeDayBrazil(match.date, getNowBrazil());
+  const formattedDate = formatFullDate(match.date);
+  const formattedTime = formatMatchTime(match.date);
 
   const handlePredictionSave = (prediction: Prediction) => {
     setCurrentPrediction(prediction);

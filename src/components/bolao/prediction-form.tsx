@@ -8,6 +8,7 @@ import { VisuallyHidden } from "radix-ui";
 import { Button } from "@/components/ui/button";
 import { TeamFlag } from "./team-flag";
 import { cn } from "@/lib/utils";
+import { formatDateWithTime } from "@/lib/date-utils";
 import type { Match, FirstToScore, Prediction } from "@/types";
 import {
   savePrediction as dbSavePrediction,
@@ -155,16 +156,6 @@ export function PredictionForm({
     }
   };
 
-  const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat("pt-BR", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(date);
-  };
-
   const noGoals = homeScore === 0 && awayScore === 0;
 
   return (
@@ -177,7 +168,7 @@ export function PredictionForm({
           {/* Match Info */}
           <div className="text-center space-y-1">
             <p className="text-sm text-muted-foreground capitalize">
-              {formatDate(match.date)}
+              {formatDateWithTime(match.date)}
             </p>
             <p className="text-xs text-muted-foreground">{match.venue}</p>
           </div>

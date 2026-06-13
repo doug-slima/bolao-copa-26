@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
 import { Plus, Minus, Clock, Check, X } from "@phosphor-icons/react";
 import {
   Dialog,
@@ -14,10 +14,11 @@ import { TeamFlag } from "./team-flag";
 import { cn } from "@/lib/utils";
 import type { Match, FirstToScore, Prediction } from "@/types";
 import {
-  savePrediction,
-  getPrediction,
-  deletePrediction,
-} from "@/lib/predictions-store";
+  savePrediction as dbSavePrediction,
+  getPrediction as dbGetPrediction,
+  deletePrediction as dbDeletePrediction,
+  type DbPrediction,
+} from "@/lib/db/predictions";
 import {
   getTimeUntilDeadline,
   isPredictionDeadlinePassed,
@@ -40,11 +41,13 @@ export function PredictionForm({
   submitButtonText,
 }: PredictionFormProps) {
   const { userId } = useAuth();
+  const { user } = useUser();
   const [homeScore, setHomeScore] = useState(0);
   const [awayScore, setAwayScore] = useState(0);
   const [firstToScore, setFirstToScore] = useState<FirstToScore>("home");
-  const [existingPrediction, setExistingPrediction] = useState<Prediction | null>(null);
+  const [existingPrediction, setExistingPrediction] = useState<DbPrediction | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
@@ -53,20 +56,23 @@ export function PredictionForm({
 
   useEffect(() => {
     if (open && userId) {
-      const existing = getPrediction(match.id, userId);
-      if (existing) {
-        setExistingPrediction(existing);
-        setHomeScore(existing.homeScore);
-        setAwayScore(existing.awayScore);
-        setFirstToScore(existing.firstToScore);
-      } else {
-        setExistingPrediction(null);
-        setHomeScore(0);
-        setAwayScore(0);
-        setFirstToScore("home");
-      }
-      setError(null);
-      setSuccess(false);
+      setLoading(true);
+      dbGetPrediction(match.id, userId).then((existing) => {
+        if (existing) {
+          setExistingPrediction(existing);
+          setHomeScore(existing.homeScore);
+          setAwayScore(existing.awayScore);
+          setFirstToScore(existing.firstToScore);
+        } else {
+          setExistingPrediction(null);
+          setHomeScore(0);
+          setAwayScore(0);
+          setFirstToScore("home");
+        }
+        setError(null);
+        setSuccess(false);
+        setLoading(false);
+      });
     }
   }, [open, userId, match.id]);
 
@@ -78,8 +84,8 @@ export function PredictionForm({
     }
   }, [homeScore, awayScore, firstToScore]);
 
-  const handleSave = () => {
-    if (!userId) {
+  const handleSave = async () => {
+    if (!userId || !user) {
       setError("Você precisa estar logado para fazer um chute.");
       return;
     }
@@ -87,10 +93,12 @@ export function PredictionForm({
     setSaving(true);
     setError(null);
 
-    const result = savePrediction(
+    const result = await dbSavePrediction(
       {
         matchId: match.id,
         userId,
+        userName: user.fullName || user.firstName || "Usuário",
+        userAvatarUrl: user.imageUrl,
         homeScore,
         awayScore,
         firstToScore,
@@ -103,7 +111,17 @@ export function PredictionForm({
     if (result.success && result.prediction) {
       setSuccess(true);
       setExistingPrediction(result.prediction);
-      onSave?.(result.prediction);
+      const predictionForCallback: Prediction = {
+        id: result.prediction.id,
+        matchId: result.prediction.matchId,
+        userId: result.prediction.userId,
+        homeScore: result.prediction.homeScore,
+        awayScore: result.prediction.awayScore,
+        firstToScore: result.prediction.firstToScore,
+        createdAt: result.prediction.createdAt,
+        updatedAt: result.prediction.updatedAt || undefined,
+      };
+      onSave?.(predictionForCallback);
       setTimeout(() => {
         onOpenChange(false);
       }, 1000);
@@ -112,10 +130,10 @@ export function PredictionForm({
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!userId) return;
 
-    const result = deletePrediction(match.id, userId, match.date);
+    const result = await dbDeletePrediction(match.id, userId, match.date);
     if (result.success) {
       setExistingPrediction(null);
       setHomeScore(0);

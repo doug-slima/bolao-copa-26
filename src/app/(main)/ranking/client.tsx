@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { SignInButton } from "@clerk/nextjs";
 import {
@@ -22,24 +22,16 @@ import { Switcher } from "@/components/bolao/switcher";
 import { RankingTable } from "@/components/bolao/ranking-table";
 import { MetricCard, SingleMetricCard } from "@/components/bolao/metric-card";
 import { cn } from "@/lib/utils";
-import type { League } from "@/types";
+import type { UserRankingExtended, MetricLeader, UserMetrics } from "@/types";
 import {
-  getGeneralRanking,
-  getTopScorers,
-  getTopVidentes,
-  getTopChallengers,
-  getHotStreaks,
-  getColdFeet,
-  getUserLeagues,
-  getLeagueRanking,
-  getLeagueLeader,
-  getLeagueVice,
-  getLeagueLanterna,
-  getLeagueTopVidente,
-  getLeagueTopChallenger,
-  getUserMetrics,
-  getAverageStats,
-} from "@/lib/ranking-store";
+  getGeneralRanking as dbGetGeneralRanking,
+  getLeagueRanking as dbGetLeagueRanking,
+  subscribeToRanking,
+} from "@/lib/db/users";
+import {
+  getUserLeagues as dbGetUserLeagues,
+  type DbLeague,
+} from "@/lib/db/leagues";
 
 type TabMode = "geral" | "ligas" | "meu";
 
@@ -48,22 +40,28 @@ export function RankingPageClient() {
   const [tabMode, setTabMode] = useState<TabMode>("geral");
   const [selectedLeagueId, setSelectedLeagueId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const [generalRanking, setGeneralRanking] = useState<UserRankingExtended[]>([]);
+  const [userLeagues, setUserLeagues] = useState<DbLeague[]>([]);
+  const [leagueRanking, setLeagueRanking] = useState<UserRankingExtended[]>([]);
 
   useEffect(() => {
     setMounted(true);
+    loadGeneralRanking();
   }, []);
 
-  const generalRanking = useMemo(() => getGeneralRanking(), []);
-  const topScorers = useMemo(() => getTopScorers(5), []);
-  const topVidentes = useMemo(() => getTopVidentes(5), []);
-  const topChallengers = useMemo(() => getTopChallengers(5), []);
-  const hotStreaks = useMemo(() => getHotStreaks(5), []);
-  const coldFeet = useMemo(() => getColdFeet(5), []);
-
-  const userLeagues = useMemo(() => {
-    if (!userId) return [];
-    return getUserLeagues(userId);
+  useEffect(() => {
+    if (userId) {
+      loadUserLeagues();
+    }
   }, [userId]);
+
+  useEffect(() => {
+    if (selectedLeagueId) {
+      loadLeagueRanking(selectedLeagueId);
+    }
+  }, [selectedLeagueId]);
 
   useEffect(() => {
     if (userLeagues.length > 0 && !selectedLeagueId) {
@@ -71,28 +69,137 @@ export function RankingPageClient() {
     }
   }, [userLeagues, selectedLeagueId]);
 
-  const leagueRanking = useMemo(() => {
-    if (!selectedLeagueId) return null;
-    return getLeagueRanking(selectedLeagueId);
-  }, [selectedLeagueId]);
+  useEffect(() => {
+    const unsubscribe = subscribeToRanking((rankings) => {
+      setGeneralRanking(rankings);
+    });
+    return () => unsubscribe();
+  }, []);
 
-  const leagueMetrics = useMemo(() => {
-    if (!selectedLeagueId) return null;
+  const loadGeneralRanking = async () => {
+    setLoading(true);
+    const rankings = await dbGetGeneralRanking();
+    setGeneralRanking(rankings);
+    setLoading(false);
+  };
+
+  const loadUserLeagues = async () => {
+    if (!userId) return;
+    const leagues = await dbGetUserLeagues(userId);
+    setUserLeagues(leagues);
+  };
+
+  const loadLeagueRanking = async (leagueId: string) => {
+    const rankings = await dbGetLeagueRanking(leagueId);
+    setLeagueRanking(rankings);
+  };
+
+  const topScorers: MetricLeader[] = generalRanking.slice(0, 5).map((r) => ({
+    userId: r.userId,
+    userName: r.userName,
+    avatarUrl: r.avatarUrl,
+    value: r.totalPoints,
+  }));
+
+  const topVidentes: MetricLeader[] = [...generalRanking]
+    .sort((a, b) => b.exactPredictions - a.exactPredictions)
+    .slice(0, 5)
+    .map((r) => ({
+      userId: r.userId,
+      userName: r.userName,
+      avatarUrl: r.avatarUrl,
+      value: r.exactPredictions,
+    }));
+
+  const topChallengers: MetricLeader[] = [...generalRanking]
+    .sort((a, b) => b.challengeWins - a.challengeWins)
+    .slice(0, 5)
+    .map((r) => ({
+      userId: r.userId,
+      userName: r.userName,
+      avatarUrl: r.avatarUrl,
+      value: r.challengeWins,
+    }));
+
+  const hotStreaks: MetricLeader[] = [...generalRanking]
+    .sort((a, b) => b.currentStreak - a.currentStreak)
+    .slice(0, 5)
+    .map((r) => ({
+      userId: r.userId,
+      userName: r.userName,
+      avatarUrl: r.avatarUrl,
+      value: r.currentStreak,
+    }));
+
+  const coldFeet: MetricLeader[] = [...generalRanking]
+    .sort((a, b) => a.totalPoints - b.totalPoints)
+    .slice(0, 5)
+    .map((r) => ({
+      userId: r.userId,
+      userName: r.userName,
+      avatarUrl: r.avatarUrl,
+      value: r.totalPoints,
+    }));
+
+  const userMetrics: UserMetrics | null = userId
+    ? (() => {
+        const userRank = generalRanking.find((r) => r.userId === userId);
+        if (!userRank) return null;
+        return {
+          userId: userRank.userId,
+          userName: userRank.userName,
+          avatarUrl: userRank.avatarUrl,
+          position: userRank.position,
+          previousPosition: userRank.position,
+          totalPoints: userRank.totalPoints,
+          pointsThisWeek: 0,
+          exactPredictions: userRank.exactPredictions,
+          uniqueExactPredictions: userRank.uniqueExactPredictions,
+          correctResults: userRank.correctResults,
+          correctFirstScorers: userRank.correctFirstScorers,
+          totalPredictions: userRank.totalPredictions,
+          challengeWins: userRank.challengeWins,
+          challengeLosses: userRank.challengeLosses,
+          currentStreak: userRank.currentStreak,
+          bestStreak: userRank.currentStreak,
+          closeCallMisses: userRank.closeCallMisses,
+          pointsBreakdown: {
+            fromExactScores: 0,
+            fromResults: 0,
+            fromFirstScorer: 0,
+            fromChallenges: 0,
+          },
+          positionHistory: [],
+        };
+      })()
+    : null;
+
+  const averageStats = {
+    avgPoints: generalRanking.length > 0 
+      ? Math.round(generalRanking.reduce((a, b) => a + b.totalPoints, 0) / generalRanking.length)
+      : 0,
+    avgExacts: generalRanking.length > 0
+      ? Math.round(generalRanking.reduce((a, b) => a + b.exactPredictions, 0) / generalRanking.length)
+      : 0,
+    avgChallengeWins: generalRanking.length > 0
+      ? Math.round(generalRanking.reduce((a, b) => a + b.challengeWins, 0) / generalRanking.length)
+      : 0,
+  };
+
+  const leagueMetrics = selectedLeagueId && leagueRanking.length > 0 ? (() => {
+    const sortedByExacts = [...leagueRanking].sort((a, b) => b.exactPredictions - a.exactPredictions);
+    const sortedByChallenges = [...leagueRanking].sort((a, b) => b.challengeWins - a.challengeWins);
+    const videnteRank = sortedByExacts[0];
+    const challengerRank = sortedByChallenges[0];
+    
     return {
-      leader: getLeagueLeader(selectedLeagueId),
-      vice: getLeagueVice(selectedLeagueId),
-      vidente: getLeagueTopVidente(selectedLeagueId),
-      challenger: getLeagueTopChallenger(selectedLeagueId),
-      lanterna: getLeagueLanterna(selectedLeagueId),
+      leader: leagueRanking[0] ? { userId: leagueRanking[0].userId, userName: leagueRanking[0].userName, avatarUrl: leagueRanking[0].avatarUrl, value: leagueRanking[0].totalPoints } : null,
+      vice: leagueRanking[1] ? { userId: leagueRanking[1].userId, userName: leagueRanking[1].userName, avatarUrl: leagueRanking[1].avatarUrl, value: leagueRanking[1].totalPoints } : null,
+      vidente: videnteRank ? { userId: videnteRank.userId, userName: videnteRank.userName, avatarUrl: videnteRank.avatarUrl, value: videnteRank.exactPredictions } : null,
+      challenger: challengerRank ? { userId: challengerRank.userId, userName: challengerRank.userName, avatarUrl: challengerRank.avatarUrl, value: challengerRank.challengeWins } : null,
+      lanterna: leagueRanking[leagueRanking.length - 1] ? { userId: leagueRanking[leagueRanking.length - 1].userId, userName: leagueRanking[leagueRanking.length - 1].userName, avatarUrl: leagueRanking[leagueRanking.length - 1].avatarUrl, value: leagueRanking[leagueRanking.length - 1].totalPoints } : null,
     };
-  }, [selectedLeagueId]);
-
-  const userMetrics = useMemo(() => {
-    if (!userId) return null;
-    return getUserMetrics(userId);
-  }, [userId]);
-
-  const averageStats = useMemo(() => getAverageStats(), []);
+  })() : null;
 
   if (!mounted) {
     return (
@@ -288,13 +395,13 @@ export function RankingPageClient() {
               )}
 
               {/* League Ranking Table */}
-              {leagueRanking && (
+              {leagueRanking.length > 0 && (
                 <div>
                   <h2 className="text-lg font-semibold mb-4">
-                    {leagueRanking.league.name}
+                    {userLeagues.find((l) => l.id === selectedLeagueId)?.name || "Liga"}
                   </h2>
                   <RankingTable
-                    rankings={leagueRanking.rankings}
+                    rankings={leagueRanking}
                     currentUserId={userId ?? undefined}
                   />
                 </div>
@@ -427,14 +534,14 @@ export function RankingPageClient() {
                       <span className="text-sm">
                         <span className="font-medium">{userMetrics.exactPredictions}</span>
                         <span className="text-muted-foreground"> vs </span>
-                        <span className="text-muted-foreground">{averageStats.avgExact}</span>
+                        <span className="text-muted-foreground">{averageStats.avgExacts}</span>
                       </span>
                     </div>
                     <div className="h-2 bg-muted rounded-full overflow-hidden">
                       <div
                         className="h-full bg-green-500 rounded-full"
                         style={{
-                          width: `${Math.min(100, (userMetrics.exactPredictions / (averageStats.avgExact * 2)) * 100)}%`,
+                          width: `${Math.min(100, (userMetrics.exactPredictions / (averageStats.avgExacts * 2)) * 100)}%`,
                         }}
                       />
                     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { SignInButton } from "@clerk/nextjs";
 import {
@@ -25,11 +25,11 @@ import { LeagueCard } from "@/components/bolao/league-card";
 import { cn } from "@/lib/utils";
 import type { League } from "@/types";
 import {
-  getUserLeagues,
-  createLeague,
-  joinLeague,
-  getUserPositionInLeague,
-} from "@/lib/ranking-store";
+  getUserLeagues as dbGetUserLeagues,
+  createLeague as dbCreateLeague,
+  joinLeague as dbJoinLeague,
+  type DbLeague,
+} from "@/lib/db/leagues";
 
 type TabMode = "minhas" | "criar";
 
@@ -41,16 +41,19 @@ export function LigasPageClient() {
 
   const [joinCode, setJoinCode] = useState("");
   const [joinError, setJoinError] = useState<string | null>(null);
-  const [joinSuccess, setJoinSuccess] = useState<League | null>(null);
+  const [joinSuccess, setJoinSuccess] = useState<DbLeague | null>(null);
+  const [joining, setJoining] = useState(false);
 
   const [leagueName, setLeagueName] = useState("");
   const [leagueDescription, setLeagueDescription] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
-  const [createdLeague, setCreatedLeague] = useState<League | null>(null);
+  const [createdLeague, setCreatedLeague] = useState<DbLeague | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [creating, setCreating] = useState(false);
 
-  const [userLeagues, setUserLeagues] = useState<League[]>([]);
+  const [userLeagues, setUserLeagues] = useState<DbLeague[]>([]);
+  const [loadingLeagues, setLoadingLeagues] = useState(true);
 
   useEffect(() => {
     setMounted(true);
@@ -62,16 +65,28 @@ export function LigasPageClient() {
     }
   }, [mounted, userId]);
 
-  const refreshLeagues = () => {
+  const refreshLeagues = async () => {
     if (!userId) return;
-    setUserLeagues(getUserLeagues(userId));
+    setLoadingLeagues(true);
+    const leagues = await dbGetUserLeagues(userId);
+    setUserLeagues(leagues);
+    setLoadingLeagues(false);
   };
 
-  const handleJoinLeague = () => {
-    if (!userId || !joinCode.trim()) return;
+  const handleJoinLeague = async () => {
+    if (!userId || !user || !joinCode.trim()) return;
 
     setJoinError(null);
-    const result = joinLeague(joinCode.trim(), userId);
+    setJoining(true);
+    
+    const result = await dbJoinLeague(
+      joinCode.trim(),
+      userId,
+      user.fullName || user.firstName || "Usuário",
+      user.imageUrl
+    );
+
+    setJoining(false);
 
     if (result.success && result.league) {
       setJoinSuccess(result.league);
@@ -83,16 +98,20 @@ export function LigasPageClient() {
     }
   };
 
-  const handleCreateLeague = () => {
+  const handleCreateLeague = async () => {
     if (!userId || !user) return;
 
     setCreateError(null);
-    const result = createLeague(
-      leagueName,
-      leagueDescription || undefined,
-      userId,
-      user.firstName || "Você"
-    );
+    setCreating(true);
+    
+    const result = await dbCreateLeague({
+      name: leagueName,
+      description: leagueDescription || undefined,
+      createdBy: userId,
+      createdByName: user.fullName || user.firstName || "Você",
+    });
+
+    setCreating(false);
 
     if (result.success && result.league) {
       setCreatedLeague(result.league);
@@ -228,8 +247,8 @@ export function LigasPageClient() {
                 className="flex-1 uppercase"
                 maxLength={6}
               />
-              <Button onClick={handleJoinLeague} disabled={!joinCode.trim()}>
-                Entrar
+              <Button onClick={handleJoinLeague} disabled={!joinCode.trim() || joining}>
+                {joining ? "Entrando..." : "Entrar"}
               </Button>
             </div>
 
@@ -248,15 +267,28 @@ export function LigasPageClient() {
           </div>
 
           {/* User Leagues */}
-          {userLeagues.length > 0 ? (
+          {loadingLeagues ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-pulse text-muted-foreground">Carregando suas ligas...</div>
+            </div>
+          ) : userLeagues.length > 0 ? (
             <div className="space-y-4">
               <h2 className="text-lg font-semibold">Suas Ligas</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {userLeagues.map((league) => (
                   <LeagueCard
                     key={league.id}
-                    league={league}
-                    userPosition={getUserPositionInLeague(league.id, userId!)}
+                    league={{
+                      id: league.id,
+                      name: league.name,
+                      description: league.description || undefined,
+                      inviteCode: league.inviteCode,
+                      createdBy: league.createdBy,
+                      createdByName: league.createdByName,
+                      memberCount: league.memberCount,
+                      createdAt: league.createdAt,
+                    }}
+                    userPosition={null}
                   />
                 ))}
               </div>
@@ -336,10 +368,10 @@ export function LigasPageClient() {
                 className="w-full"
                 size="lg"
                 onClick={handleCreateLeague}
-                disabled={!leagueName.trim()}
+                disabled={!leagueName.trim() || creating}
               >
                 <Plus size={18} className="mr-2" />
-                Criar Liga
+                {creating ? "Criando..." : "Criar Liga"}
               </Button>
             </div>
           </div>

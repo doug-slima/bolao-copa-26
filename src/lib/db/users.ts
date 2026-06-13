@@ -79,6 +79,7 @@ export async function getGeneralRanking(): Promise<UserRankingExtended[]> {
   const { data, error } = await supabase
     .from("users")
     .select("*")
+    .gt("total_points", 0)
     .order("total_points", { ascending: false })
     .limit(100);
 
@@ -122,6 +123,7 @@ export async function getLeagueRanking(leagueId: string): Promise<UserRankingExt
     .from("users")
     .select("*")
     .in("clerk_id", userIds)
+    .gt("total_points", 0)
     .order("total_points", { ascending: false });
 
   if (error || !data) {

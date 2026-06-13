@@ -20,3 +20,6 @@ export { Dashboard } from "./dashboard";
 export { MatchSelectorModal } from "./match-selector-modal";
 export { LoggedHome } from "./logged-home";
 export { MobileTabSelect } from "./mobile-tab-select";
+export { NotificationBadge } from "./notification-badge";
+export { NotificationsModal } from "./notifications-modal";
+export { NotificationToast } from "./notification-toast";

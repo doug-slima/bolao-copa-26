@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth, UserButton } from "@clerk/nextjs";
-import { List, X, SoccerBall, Trophy, FlagBanner } from "@phosphor-icons/react";
+import { List, SoccerBall, Trophy, FlagBanner, User } from "@phosphor-icons/react";
 import {
   Sheet,
   SheetContent,
@@ -14,17 +14,21 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { NotificationBadge } from "./notification-badge";
+import { NotificationsModal } from "./notifications-modal";
 
 const navItems = [
   { href: "/jogos", label: "Jogos", icon: SoccerBall },
   { href: "/ranking", label: "Ranking", icon: Trophy },
   { href: "/ligas", label: "Ligas", icon: FlagBanner },
+  { href: "/meu-bolao", label: "Meu Bolão", icon: User },
 ];
 
 export function Header() {
   const pathname = usePathname();
   const { isSignedIn, isLoaded } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   const isActiveRoute = (href: string) => {
     if (href === "/jogos") {
@@ -32,6 +36,9 @@ export function Header() {
     }
     if (href === "/ligas") {
       return pathname === "/ligas" || pathname.startsWith("/ligas/");
+    }
+    if (href === "/meu-bolao") {
+      return pathname === "/meu-bolao" || pathname.startsWith("/meu-bolao/");
     }
     return pathname === href;
   };
@@ -71,6 +78,12 @@ export function Header() {
             {/* Desktop: UserButton or Sign In */}
             {isLoaded && isSignedIn ? (
               <>
+                {/* Notification Badge */}
+                <NotificationBadge
+                  onClick={() => setNotificationsOpen(true)}
+                  className="hidden md:flex"
+                />
+
                 {/* Desktop UserButton */}
                 <div className="hidden md:block">
                   <UserButton
@@ -146,6 +159,12 @@ export function Header() {
           </div>
         </div>
       </div>
+
+      {/* Notifications Modal */}
+      <NotificationsModal
+        open={notificationsOpen}
+        onOpenChange={setNotificationsOpen}
+      />
     </header>
   );
 }

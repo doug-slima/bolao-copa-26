@@ -2,17 +2,18 @@ import Link from "next/link";
 import { MatchCard } from "./match-card";
 import { RankingTable } from "./ranking-table";
 import { getUpcomingMatches, getAllMatches, getAllTeams } from "@/lib/api";
-import { mockUserRankings } from "@/lib/mock-data";
+import { getGeneralRanking } from "@/lib/db/users";
 import { Button } from "@/components/ui/button";
 
 export async function Dashboard() {
-  const [upcomingMatches, allMatches, allTeams] = await Promise.all([
+  const [upcomingMatches, allMatches, allTeams, generalRanking] = await Promise.all([
     getUpcomingMatches(4),
     getAllMatches(),
     getAllTeams(),
+    getGeneralRanking(),
   ]);
 
-  const topRankings = mockUserRankings.slice(0, 3);
+  const topRankings = generalRanking.slice(0, 3);
   const totalMatches = allMatches.length;
   const totalTeams = allTeams.length;
   const totalGroups = 12;

@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { SignInButton } from "@clerk/nextjs";
 import {
   Users,
   Plus,
-  Ticket,
   CheckCircle,
   Copy,
   FlagBanner,
@@ -27,24 +27,26 @@ import type { League } from "@/types";
 import {
   getUserLeagues as dbGetUserLeagues,
   createLeague as dbCreateLeague,
-  joinLeague as dbJoinLeague,
   deleteLeague as dbDeleteLeague,
   leaveLeague as dbLeaveLeague,
+  getLeagueMembers as dbGetLeagueMembers,
   type DbLeague,
 } from "@/lib/db/leagues";
+
+interface LeagueMemberSimple {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+}
 
 type TabMode = "minhas" | "criar";
 
 export function LigasPageClient() {
+  const router = useRouter();
   const { isSignedIn, userId } = useAuth();
   const { user } = useUser();
   const [tabMode, setTabMode] = useState<TabMode>("minhas");
   const [mounted, setMounted] = useState(false);
-
-  const [joinCode, setJoinCode] = useState("");
-  const [joinError, setJoinError] = useState<string | null>(null);
-  const [joinSuccess, setJoinSuccess] = useState<DbLeague | null>(null);
-  const [joining, setJoining] = useState(false);
 
   const [leagueName, setLeagueName] = useState("");
   const [leagueDescription, setLeagueDescription] = useState("");
@@ -55,6 +57,7 @@ export function LigasPageClient() {
   const [creating, setCreating] = useState(false);
 
   const [userLeagues, setUserLeagues] = useState<DbLeague[]>([]);
+  const [leagueMembers, setLeagueMembers] = useState<Record<string, LeagueMemberSimple[]>>({});
   const [loadingLeagues, setLoadingLeagues] = useState(true);
 
   useEffect(() => {
@@ -72,27 +75,19 @@ export function LigasPageClient() {
     setLoadingLeagues(true);
     const leagues = await dbGetUserLeagues(userId);
     setUserLeagues(leagues);
-    setLoadingLeagues(false);
-  };
-
-  const handleJoinLeague = async () => {
-    if (!userId || !user || !joinCode.trim()) return;
-
-    setJoinError(null);
-    setJoining(true);
     
-    const result = await dbJoinLeague(joinCode.trim());
-
-    setJoining(false);
-
-    if (result.success && result.league) {
-      setJoinSuccess(result.league);
-      setJoinCode("");
-      refreshLeagues();
-      setTimeout(() => setJoinSuccess(null), 3000);
-    } else {
-      setJoinError(result.error || "Erro ao entrar na liga");
+    const membersMap: Record<string, LeagueMemberSimple[]> = {};
+    for (const league of leagues) {
+      const members = await dbGetLeagueMembers(league.id);
+      membersMap[league.id] = members.map(m => ({
+        id: m.userId,
+        name: m.userName,
+        avatarUrl: m.userAvatarUrl,
+      }));
     }
+    setLeagueMembers(membersMap);
+    
+    setLoadingLeagues(false);
   };
 
   const handleCreateLeague = async () => {
@@ -128,7 +123,8 @@ export function LigasPageClient() {
 
   const handleShareWhatsApp = () => {
     if (!createdLeague) return;
-    const text = `Entre na minha liga "${createdLeague.name}" no Bolão Copa 26! 🏆⚽\n\nUse o código: *${createdLeague.inviteCode}*`;
+    const siteUrl = typeof window !== "undefined" ? window.location.origin : "https://bolaocopa.fun";
+    const text = `Entre na minha liga "${createdLeague.name}" no Bolão Copa 26! 🏆⚽\n\nClique para entrar: ${siteUrl}/convite/${createdLeague.inviteCode}`;
     const encodedText = encodeURIComponent(text);
     window.open(`https://wa.me/?text=${encodedText}`, "_blank");
   };
@@ -234,54 +230,6 @@ export function LigasPageClient() {
             </p>
           </div>
 
-          {/* Join with Code Card */}
-          <div className="bg-card border border-border/50 rounded-2xl p-5">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <Ticket size={20} className="text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold">Tem um código de convite?</h3>
-                <p className="text-sm text-muted-foreground">
-                  Digite abaixo para entrar em uma liga
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Input
-                placeholder="Ex: ABC123"
-                value={joinCode}
-                onChange={(e) => {
-                  setJoinCode(e.target.value.toUpperCase());
-                  setJoinError(null);
-                }}
-                className="flex-1 uppercase h-12 text-base"
-                maxLength={6}
-              />
-              <Button 
-                onClick={handleJoinLeague} 
-                disabled={!joinCode.trim() || joining}
-                className="h-12 px-6 text-base rounded-full w-full sm:w-auto"
-              >
-                {joining ? "Entrando..." : "Entrar na Liga"}
-              </Button>
-            </div>
-
-            {joinError && (
-              <p className="text-sm text-destructive mt-2">{joinError}</p>
-            )}
-
-            {joinSuccess && (
-              <div className="flex items-center gap-2 text-green-500 mt-2">
-                <CheckCircle size={16} weight="fill" />
-                <span className="text-sm">
-                  Você entrou na liga "{joinSuccess.name}"!
-                </span>
-              </div>
-            )}
-          </div>
-
           {/* User Leagues */}
           {loadingLeagues ? (
             <div className="flex items-center justify-center py-12">
@@ -304,8 +252,10 @@ export function LigasPageClient() {
                       memberCount: league.memberCount,
                       createdAt: league.createdAt,
                     }}
+                    members={leagueMembers[league.id] || []}
                     currentUserId={userId}
                     userPosition={null}
+                    onClick={() => router.push(`/ranking?liga=${league.id}`)}
                     onDelete={handleDeleteLeague}
                     onLeave={handleLeaveLeague}
                   />

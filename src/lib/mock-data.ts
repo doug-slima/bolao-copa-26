@@ -1,4 +1,4 @@
-import { Team, Match, UserRankingExtended, Prediction } from "@/types";
+import { Team, Match } from "@/types";
 
 // ============================================
 // TIMES OFICIAIS - FIFA WORLD CUP 2026
@@ -339,105 +339,6 @@ export const matches: Match[] = [
   // ========== FINAL ==========
   createMatch("final", "mex", "arg", "2026-07-19", "15:00", "final", "metlife"),
 ];
-
-// ============================================
-// MOCK USER RANKINGS
-// ============================================
-
-export const mockUserRankings: UserRankingExtended[] = [
-  {
-    userId: "user_1",
-    userName: "João Silva",
-    avatarUrl: undefined,
-    totalPoints: 156,
-    exactPredictions: 8,
-    correctResults: 24,
-    correctFirstScorers: 18,
-    totalPredictions: 48,
-    position: 1,
-    movement: "same",
-    positionChange: 0,
-    challengeWins: 5,
-    challengeLosses: 2,
-    currentStreak: 3,
-    uniqueExactPredictions: 2,
-    closeCallMisses: 4,
-  },
-  {
-    userId: "user_2",
-    userName: "Maria Santos",
-    avatarUrl: undefined,
-    totalPoints: 142,
-    exactPredictions: 6,
-    correctResults: 26,
-    correctFirstScorers: 15,
-    totalPredictions: 48,
-    position: 2,
-    movement: "up",
-    positionChange: 1,
-    challengeWins: 4,
-    challengeLosses: 3,
-    currentStreak: 5,
-    uniqueExactPredictions: 1,
-    closeCallMisses: 6,
-  },
-  {
-    userId: "user_3",
-    userName: "Pedro Costa",
-    avatarUrl: undefined,
-    totalPoints: 138,
-    exactPredictions: 7,
-    correctResults: 22,
-    correctFirstScorers: 16,
-    totalPredictions: 45,
-    position: 3,
-    movement: "down",
-    positionChange: 1,
-    challengeWins: 3,
-    challengeLosses: 4,
-    currentStreak: 0,
-    uniqueExactPredictions: 3,
-    closeCallMisses: 2,
-  },
-  {
-    userId: "user_4",
-    userName: "Ana Oliveira",
-    avatarUrl: undefined,
-    totalPoints: 125,
-    exactPredictions: 5,
-    correctResults: 23,
-    correctFirstScorers: 14,
-    totalPredictions: 48,
-    position: 4,
-    movement: "same",
-    positionChange: 0,
-    challengeWins: 2,
-    challengeLosses: 2,
-    currentStreak: 1,
-    uniqueExactPredictions: 1,
-    closeCallMisses: 5,
-  },
-  {
-    userId: "user_5",
-    userName: "Carlos Ferreira",
-    avatarUrl: undefined,
-    totalPoints: 118,
-    exactPredictions: 4,
-    correctResults: 22,
-    correctFirstScorers: 12,
-    totalPredictions: 46,
-    position: 5,
-    movement: "new",
-    positionChange: 0,
-    challengeWins: 1,
-    challengeLosses: 3,
-    currentStreak: 2,
-    uniqueExactPredictions: 0,
-    closeCallMisses: 8,
-  },
-];
-
-export const mockPredictions: Prediction[] = [];
 
 // ============================================
 // HELPER FUNCTIONS

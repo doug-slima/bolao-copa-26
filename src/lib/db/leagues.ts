@@ -175,20 +175,24 @@ export async function joinLeague(
 
 export async function leaveLeague(
   leagueId: string,
-  userId: string
+  _userId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const { error } = await supabase
-    .from("league_members")
-    .delete()
-    .eq("league_id", leagueId)
-    .eq("user_id", userId);
+  try {
+    const response = await fetch(`/api/leagues/${leagueId}/leave`, {
+      method: "POST",
+    });
 
-  if (error) {
+    const data = await response.json();
+    
+    if (!response.ok || !data.success) {
+      return { success: false, error: data.error || "Erro ao sair da liga." };
+    }
+
+    return { success: true };
+  } catch (error) {
     console.error("Error leaving league:", error);
-    return { success: false, error: "Erro ao sair da liga." };
+    return { success: false, error: "Erro de conexão. Tente novamente." };
   }
-
-  return { success: true };
 }
 
 export async function deleteLeague(

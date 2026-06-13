@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useAuth } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
 import { Match, GroupStanding } from "@/types";
 import { MatchCard } from "./match-card";
@@ -9,6 +10,8 @@ import { GroupStandings } from "./group-standings";
 import { KnockoutMatchCard } from "./knockout-match-card";
 import { MobileTabSelect } from "./mobile-tab-select";
 import { getKnockoutMatchesByStage } from "@/lib/knockout-structure";
+import { getUserLeagues } from "@/lib/db/leagues";
+import { getLeaguePredictionCounts, getUserPredictions } from "@/lib/db/predictions";
 
 interface MatchCalendarProps {
   matches: Match[];
@@ -65,11 +68,42 @@ export function MatchCalendar({
   subtitle,
   className 
 }: MatchCalendarProps) {
+  const { userId } = useAuth();
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("today");
   const [knockoutStage, setKnockoutStage] = useState<KnockoutStage>("round32");
+  const [predictionCounts, setPredictionCounts] = useState<Record<string, number>>({});
+  const [userPredictions, setUserPredictions] = useState<Record<string, { homeScore: number; awayScore: number }>>({});
 
   const today = useMemo(() => new Date(), []);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const loadData = async () => {
+      const [leagues, predictions] = await Promise.all([
+        getUserLeagues(userId),
+        getUserPredictions(userId),
+      ]);
+
+      if (leagues.length > 0) {
+        const matchIds = matches.map((m) => m.id);
+        const counts = await getLeaguePredictionCounts(matchIds, leagues[0].id);
+        setPredictionCounts(counts);
+      }
+
+      const predictionsMap: Record<string, { homeScore: number; awayScore: number }> = {};
+      predictions.forEach((p) => {
+        predictionsMap[p.matchId] = {
+          homeScore: p.homeScore,
+          awayScore: p.awayScore,
+        };
+      });
+      setUserPredictions(predictionsMap);
+    };
+
+    loadData();
+  }, [userId, matches]);
 
   const filteredMatches = useMemo(() => {
     let result = [...matches];
@@ -206,7 +240,12 @@ export function MatchCalendar({
               </h3>
               <div className="flex flex-col gap-6">
                 {dayMatches.map((match) => (
-                  <MatchCard key={match.id} match={match} />
+                  <MatchCard 
+                    key={match.id} 
+                    match={match} 
+                    predictionCount={predictionCounts[match.id]}
+                    userPrediction={userPredictions[match.id]}
+                  />
                 ))}
               </div>
             </div>
@@ -241,7 +280,13 @@ export function MatchCalendar({
                 </div>
                 <div className="p-3 flex flex-col gap-6">
                   {groupMatches.map((match) => (
-                    <MatchCard key={match.id} match={match} compact />
+                    <MatchCard 
+                      key={match.id} 
+                      match={match} 
+                      compact 
+                      predictionCount={predictionCounts[match.id]}
+                      userPrediction={userPredictions[match.id]}
+                    />
                   ))}
                 </div>
               </div>

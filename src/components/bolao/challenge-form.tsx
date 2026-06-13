@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
-import { Fire, CheckCircle, XCircle, Clock, Check } from "@phosphor-icons/react";
+import { Fire, CheckCircle, XCircle, Clock, Check, Users } from "@phosphor-icons/react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { VisuallyHidden } from "radix-ui";
 import { Button } from "@/components/ui/button";
@@ -10,13 +10,21 @@ import { cn } from "@/lib/utils";
 import type { Match } from "@/types";
 import { createChallenge } from "@/lib/db/challenges";
 import { getPrediction } from "@/lib/db/predictions";
+import { getLeagueMembers, getUserLeagues } from "@/lib/db/leagues";
 import { isPredictionDeadlinePassed } from "@/lib/scoring";
 import { PredictionForm } from "./prediction-form";
 import { TeamFlag } from "./team-flag";
 
+interface LeagueMember {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+}
+
 interface ChallengeFormPropsWithMatch {
   match: Match;
   matches?: never;
+  leagueId?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
@@ -25,6 +33,7 @@ interface ChallengeFormPropsWithMatch {
 interface ChallengeFormPropsWithMatches {
   match?: never;
   matches: Match[];
+  leagueId?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
@@ -32,17 +41,10 @@ interface ChallengeFormPropsWithMatches {
 
 type ChallengeFormProps = ChallengeFormPropsWithMatch | ChallengeFormPropsWithMatches;
 
-const mockFriends = [
-  { id: "friend_1", name: "João" },
-  { id: "friend_2", name: "Maria" },
-  { id: "friend_3", name: "Pedro" },
-  { id: "friend_4", name: "Ana" },
-  { id: "friend_5", name: "Lucas" },
-];
-
 export function ChallengeForm({
   match: singleMatch,
   matches,
+  leagueId,
   open,
   onOpenChange,
   onSuccess,
@@ -57,6 +59,8 @@ export function ChallengeForm({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [showPredictionForm, setShowPredictionForm] = useState(false);
+  const [leagueMembers, setLeagueMembers] = useState<LeagueMember[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
 
   const isStandaloneMode = !singleMatch && matches !== undefined;
   
@@ -74,6 +78,40 @@ export function ChallengeForm({
   }, [singleMatch, selectedMatchId, matches]);
 
   const isLocked = currentMatch ? isPredictionDeadlinePassed(currentMatch.date) : false;
+
+  useEffect(() => {
+    if (!open || !userId) return;
+
+    const loadMembers = async () => {
+      setLoadingMembers(true);
+      try {
+        let targetLeagueId = leagueId;
+        
+        if (!targetLeagueId) {
+          const userLeagues = await getUserLeagues(userId);
+          if (userLeagues.length > 0) {
+            targetLeagueId = userLeagues[0].id;
+          }
+        }
+        
+        if (targetLeagueId) {
+          const members = await getLeagueMembers(targetLeagueId);
+          const otherMembers = members
+            .filter((m) => m.userId !== userId)
+            .map((m) => ({
+              id: m.userId,
+              name: m.userName,
+              avatarUrl: m.userAvatarUrl,
+            }));
+          setLeagueMembers(otherMembers);
+        }
+      } finally {
+        setLoadingMembers(false);
+      }
+    };
+
+    loadMembers();
+  }, [open, leagueId, userId]);
 
   useEffect(() => {
     if (open) {
@@ -125,7 +163,7 @@ export function ChallengeForm({
     let lastError: string | null = null;
 
     for (const friendId of selectedFriends) {
-      const friendData = mockFriends.find((f) => f.id === friendId);
+      const friendData = leagueMembers.find((f) => f.id === friendId);
       if (!friendData) continue;
 
       const result = await createChallenge({
@@ -200,36 +238,61 @@ export function ChallengeForm({
           {/* Step 1: Friend Selection */}
           {!showMatchSelector && (
             <div className="space-y-2 max-h-[40vh] overflow-y-auto">
-              {mockFriends.map((friend) => {
-                const isSelected = selectedFriends.includes(friend.id);
-                return (
-                  <button
-                    key={friend.id}
-                    onClick={() => toggleFriend(friend.id)}
-                    disabled={loading || success}
-                    className={cn(
-                      "w-full flex items-center justify-between p-3 rounded-xl transition-colors",
-                      isSelected
-                        ? "bg-foreground text-background"
-                        : "bg-muted hover:bg-muted/80",
-                      (loading || success) && "opacity-50 cursor-not-allowed"
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium",
-                        isSelected ? "bg-background/20" : "bg-secondary"
-                      )}>
-                        {friend.name.charAt(0)}
+              {loadingMembers ? (
+                <div className="text-center py-8">
+                  <div className="w-8 h-8 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Carregando membros...</p>
+                </div>
+              ) : leagueMembers.length === 0 ? (
+                <div className="text-center py-8">
+                  <Users size={32} className="mx-auto text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    Nenhum amigo na liga ainda.
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Convide amigos para participar!
+                  </p>
+                </div>
+              ) : (
+                leagueMembers.map((friend) => {
+                  const isSelected = selectedFriends.includes(friend.id);
+                  return (
+                    <button
+                      key={friend.id}
+                      onClick={() => toggleFriend(friend.id)}
+                      disabled={loading || success}
+                      className={cn(
+                        "w-full flex items-center justify-between p-3 rounded-xl transition-colors",
+                        isSelected
+                          ? "bg-foreground text-background"
+                          : "bg-muted hover:bg-muted/80",
+                        (loading || success) && "opacity-50 cursor-not-allowed"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        {friend.avatarUrl ? (
+                          <img
+                            src={friend.avatarUrl}
+                            alt={friend.name}
+                            className="w-10 h-10 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className={cn(
+                            "w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium",
+                            isSelected ? "bg-background/20" : "bg-secondary"
+                          )}>
+                            {friend.name.charAt(0)}
+                          </div>
+                        )}
+                        <span className="font-medium">{friend.name}</span>
                       </div>
-                      <span className="font-medium">{friend.name}</span>
-                    </div>
-                    {isSelected && (
-                      <Check className="w-5 h-5" weight="bold" />
-                    )}
-                  </button>
-                );
-              })}
+                      {isSelected && (
+                        <Check className="w-5 h-5" weight="bold" />
+                      )}
+                    </button>
+                  );
+                })
+              )}
             </div>
           )}
 

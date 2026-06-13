@@ -1,15 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { SignInButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { SneakerMove, Fire, GithubLogo } from "@phosphor-icons/react";
 import { matches } from "@/lib/mock-data";
 import { TeamFlag } from "@/components/bolao";
@@ -74,9 +66,6 @@ function MatchCarouselCard({ homeFlag, awayFlag, homeCode, awayCode, homeName, a
 }
 
 export function LandingPage() {
-  const [showJoinModal, setShowJoinModal] = useState(false);
-  const [joinCode, setJoinCode] = useState("");
-
   return (
     <div className="fixed inset-0 top-16 overflow-hidden flex flex-col items-center pt-10 bg-background">
       {/* Hero Section */}
@@ -100,20 +89,11 @@ export function LandingPage() {
             </p>
           </div>
 
-          <div className="flex flex-row items-center justify-center gap-2 sm:gap-3">
-            <SignInButton mode="modal">
-              <Button className="h-10 sm:h-12 px-4 sm:px-5 text-sm sm:text-base rounded-full">
-                Começar
-              </Button>
-            </SignInButton>
-            <Button
-              variant="outline"
-              className="h-10 sm:h-12 px-4 sm:px-5 text-sm sm:text-base rounded-full !border-white/40 hover:!border-white/70"
-              onClick={() => setShowJoinModal(true)}
-            >
-              Entrar com código
+          <SignInButton mode="modal">
+            <Button className="h-10 sm:h-12 px-4 sm:px-5 text-sm sm:text-base rounded-full">
+              Começar
             </Button>
-          </div>
+          </SignInButton>
         </div>
       </div>
 
@@ -171,32 +151,6 @@ export function LandingPage() {
           <GithubLogo size={16} weight="bold" />
         </a>
       </div>
-
-      {/* Join with Code Modal */}
-      <Dialog open={showJoinModal} onOpenChange={setShowJoinModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Entrar em uma Liga</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-4">
-            <p className="text-sm text-muted-foreground">
-              Digite o código de convite que você recebeu de um amigo.
-            </p>
-            <Input
-              placeholder="Ex: ABC123"
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-              className="uppercase text-center text-lg tracking-widest h-12"
-              maxLength={6}
-            />
-            <SignInButton mode="modal">
-              <Button className="w-full h-12 text-base rounded-full" disabled={joinCode.length < 6}>
-                Continuar
-              </Button>
-            </SignInButton>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -262,3 +262,38 @@ export async function getMatchPredictionRanking(
     awayScore: row.away_score,
   }));
 }
+
+export async function getLeaguePredictionCounts(
+  matchIds: string[],
+  leagueId: string
+): Promise<Record<string, number>> {
+  if (matchIds.length === 0) return {};
+
+  const { data: members, error: memberError } = await supabase
+    .from("league_members")
+    .select("user_id")
+    .eq("league_id", leagueId);
+
+  if (memberError || !members || members.length === 0) {
+    return {};
+  }
+
+  const memberIds = members.map((m) => m.user_id);
+
+  const { data, error } = await supabase
+    .from("predictions")
+    .select("match_id, user_id")
+    .in("match_id", matchIds)
+    .in("user_id", memberIds);
+
+  if (error || !data) {
+    return {};
+  }
+
+  const counts: Record<string, number> = {};
+  for (const pred of data) {
+    counts[pred.match_id] = (counts[pred.match_id] || 0) + 1;
+  }
+
+  return counts;
+}

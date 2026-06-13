@@ -1,24 +1,112 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useAuth } from "@clerk/nextjs";
+import { SignInButton } from "@clerk/nextjs";
+import { Users } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
-import { mockUserRankings } from "@/lib/mock-data";
+import { getUserLeagues, getLeagueMembers } from "@/lib/db/leagues";
+
+interface Friend {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+  totalPoints: number;
+  position: number;
+}
 
 export default function AmigosPage() {
+  const { isSignedIn, userId } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [friends, setFriends] = useState<Friend[]>([]);
 
-  const friends = mockUserRankings.filter((u) => u.userId !== "current_user");
+  useEffect(() => {
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
 
-  const filteredFriends = friends.filter((f) =>
-    f.userName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+    const loadFriends = async () => {
+      setLoading(true);
+      try {
+        const leagues = await getUserLeagues(userId);
+        
+        const memberMap = new Map<string, Friend>();
+        
+        for (const league of leagues) {
+          const members = await getLeagueMembers(league.id);
+          for (const member of members) {
+            if (member.userId !== userId && !memberMap.has(member.userId)) {
+              memberMap.set(member.userId, {
+                id: member.userId,
+                name: member.userName,
+                avatarUrl: member.userAvatarUrl,
+                totalPoints: 0,
+                position: 0,
+              });
+            }
+          }
+        }
+        
+        setFriends(Array.from(memberMap.values()));
+      } catch (error) {
+        console.error("Error loading friends:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadFriends();
+  }, [userId]);
+
+  const filteredFriends = useMemo(() => {
+    return friends.filter((f) =>
+      f.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [friends, searchQuery]);
+
+  if (!isSignedIn) {
+    return (
+      <div className="space-y-8">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Amigos</h1>
+        </div>
+        <div className="flex flex-col items-center justify-center py-16 gap-4">
+          <Users size={48} className="text-muted-foreground" />
+          <p className="text-muted-foreground text-center">
+            Faça login para ver seus amigos
+          </p>
+          <SignInButton mode="modal">
+            <Button>Entrar</Button>
+          </SignInButton>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">Amigos</h1>
+          <p className="text-muted-foreground">
+            Membros das suas ligas
+          </p>
+        </div>
+        <div className="h-48 flex items-center justify-center">
+          <div className="animate-pulse text-muted-foreground">Carregando...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Amigos</h1>
         <p className="text-muted-foreground">
-          Gerencie sua lista de amigos
+          Membros das suas ligas
         </p>
       </div>
 
@@ -31,75 +119,47 @@ export default function AmigosPage() {
           onChange={(e) => setSearchQuery(e.target.value)}
           className="flex-1 px-4 h-12 text-base bg-muted rounded-lg border-none focus:outline-none focus:ring-2 focus:ring-foreground"
         />
-        <Button className="h-12 px-6 text-base rounded-full">Adicionar</Button>
-      </div>
-
-      {/* Friend Requests */}
-      <div className="bg-card rounded-2xl border border-border/50 p-4">
-        <h2 className="font-semibold mb-3">Solicitações</h2>
-        <p className="text-sm text-muted-foreground text-center py-4">
-          Nenhuma solicitação pendente
-        </p>
       </div>
 
       {/* Friends List */}
       <div>
         <h2 className="font-semibold mb-4">
-          Seus Amigos ({filteredFriends.length})
+          Boleiros ({filteredFriends.length})
         </h2>
         
         {filteredFriends.length > 0 ? (
           <div className="space-y-2">
             {filteredFriends.map((friend) => (
               <div
-                key={friend.userId}
+                key={friend.id}
                 className="flex items-center justify-between p-4 bg-card rounded-2xl border border-border/50"
               >
                 <div className="flex items-center gap-3">
                   {friend.avatarUrl ? (
                     <img
                       src={friend.avatarUrl}
-                      alt={friend.userName}
+                      alt={friend.name}
                       className="w-12 h-12 rounded-full object-cover"
                     />
                   ) : (
                     <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center font-medium">
-                      {friend.userName.charAt(0)}
+                      {friend.name.charAt(0)}
                     </div>
                   )}
                   <div>
-                    <p className="font-medium">{friend.userName}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {friend.totalPoints} pts • #{friend.position}
-                    </p>
+                    <p className="font-medium">{friend.name}</p>
                   </div>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm">
-                    Desafiar
-                  </Button>
-                  <button className="p-2 hover:bg-muted rounded-lg transition-colors">
-                    <svg
-                      className="w-5 h-5 text-muted-foreground"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                    </svg>
-                  </button>
                 </div>
               </div>
             ))}
           </div>
         ) : (
           <div className="text-center py-12 bg-card rounded-2xl border border-border/50">
+            <Users size={48} className="mx-auto text-muted-foreground mb-3" />
             <p className="text-muted-foreground">
               {searchQuery
-                ? "Nenhum amigo encontrado"
-                : "Você ainda não tem amigos adicionados"}
+                ? "Nenhum boleiro encontrado"
+                : "Entre em uma liga para ver os membros"}
             </p>
           </div>
         )}

@@ -4,14 +4,21 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Match } from "@/types";
 import { TeamFlag } from "./team-flag";
-import { YoutubeLogo } from "@phosphor-icons/react";
+import { YoutubeLogo, SneakerMove, Check } from "@phosphor-icons/react";
 
 const CAZÉTV_LIVE_URL = "https://www.youtube.com/@CasimiroMiguel/live";
+
+interface UserPrediction {
+  homeScore: number;
+  awayScore: number;
+}
 
 interface MatchCardProps {
   match: Match;
   showTime?: boolean;
   compact?: boolean;
+  predictionCount?: number;
+  userPrediction?: UserPrediction;
   className?: string;
 }
 
@@ -19,6 +26,8 @@ export function MatchCard({
   match,
   showTime = true,
   compact = false,
+  predictionCount,
+  userPrediction,
   className,
 }: MatchCardProps) {
   const router = useRouter();
@@ -57,6 +66,21 @@ export function MatchCard({
           className
         )}
       >
+          {(userPrediction || (predictionCount !== undefined && predictionCount > 0)) && (
+            <div className="flex items-center justify-end mb-2">
+              {userPrediction ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-500/10 text-green-600 rounded-full text-xs font-medium">
+                  <Check size={10} weight="bold" />
+                  {userPrediction.homeScore}-{userPrediction.awayScore}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium">
+                  <SneakerMove size={10} weight="bold" />
+                  {predictionCount}
+                </span>
+              )}
+            </div>
+          )}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <TeamFlag flag={match.homeTeam.flag} name={match.homeTeam.name} size="sm" />
@@ -139,20 +163,35 @@ export function MatchCard({
     >
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <span className="text-xs text-muted-foreground">
-            {match.group ? `Grupo ${match.group}` : match.stage}
-          </span>
-          {showTime && (
+          <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">
-              {formattedDate} • {formattedTime}
+              {match.group ? `Grupo ${match.group}` : match.stage}
             </span>
-          )}
-          {match.status === "live" && (
-            <span className="flex items-center gap-1 text-xs text-green-500">
-              <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-              AO VIVO
-            </span>
-          )}
+            {userPrediction ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-500/10 text-green-600 rounded-full text-xs font-medium">
+                <Check size={12} weight="bold" />
+                {userPrediction.homeScore}-{userPrediction.awayScore}
+              </span>
+            ) : predictionCount !== undefined && predictionCount > 0 ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium">
+                <SneakerMove size={12} weight="bold" />
+                {predictionCount}
+              </span>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-2">
+            {showTime && (
+              <span className="text-xs text-muted-foreground">
+                {formattedDate} • {formattedTime}
+              </span>
+            )}
+            {match.status === "live" && (
+              <span className="flex items-center gap-1 text-xs text-green-500">
+                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                AO VIVO
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Teams */}

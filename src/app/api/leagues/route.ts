@@ -104,6 +104,16 @@ export async function POST(request: NextRequest) {
 
     if (memberError) {
       console.error("Error adding creator as member:", memberError);
+      
+      await supabaseAdmin
+        .from("leagues")
+        .delete()
+        .eq("id", league.id);
+      
+      return NextResponse.json(
+        { success: false, error: "Erro ao criar liga. Tente novamente." },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ success: true, league });

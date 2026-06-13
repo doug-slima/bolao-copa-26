@@ -22,8 +22,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 
+interface LeagueMember {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+}
+
 interface LeagueCardProps {
   league: League;
+  members?: LeagueMember[];
   currentUserId?: string;
   userPosition?: number | null;
   onClick?: () => void;
@@ -34,6 +41,7 @@ interface LeagueCardProps {
 
 export function LeagueCard({
   league,
+  members = [],
   currentUserId,
   userPosition,
   onClick,
@@ -67,14 +75,19 @@ export function LeagueCard({
   return (
     <>
       <div
+        onClick={onClick}
+        role={onClick ? "button" : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        onKeyDown={onClick ? (e) => e.key === "Enter" && onClick() : undefined}
         className={cn(
           "w-full text-left bg-card border border-border/50 rounded-2xl p-5 transition-all relative",
           "hover:border-border hover:shadow-md",
+          onClick && "cursor-pointer",
           className
         )}
       >
         {showMenu && (
-          <div className="absolute top-3 right-3">
+          <div className="absolute top-3 right-3" onClick={(e) => e.stopPropagation()}>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -88,7 +101,8 @@ export function LeagueCard({
                 <DropdownMenuItem
                   className="flex items-center gap-2 px-4 py-2 rounded-full bg-green-600 text-white hover:bg-green-700 focus:bg-green-600 cursor-pointer whitespace-nowrap"
                   onClick={() => {
-                    const text = `Entre na minha liga "${league.name}" no Bolão Copa 26! 🏆⚽\n\nUse o código: *${league.inviteCode}*`;
+                    const siteUrl = typeof window !== "undefined" ? window.location.origin : "https://bolaocopa.fun";
+                    const text = `Entre na minha liga "${league.name}" no Bolão Copa 26! 🏆⚽\n\nClique para entrar: ${siteUrl}/convite/${league.inviteCode}`;
                     const encodedText = encodeURIComponent(text);
                     window.open(`https://wa.me/?text=${encodedText}`, "_blank");
                   }}
@@ -118,7 +132,7 @@ export function LeagueCard({
           </div>
         )}
 
-        <button onClick={onClick} className="w-full text-left">
+        <div className="w-full text-left">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0 pr-8">
               <h3 className="font-semibold text-lg truncate">{league.name}</h3>
@@ -152,7 +166,43 @@ export function LeagueCard({
             )}
           </div>
 
-          <div className="flex items-center gap-4 mt-4 text-sm text-muted-foreground">
+          {/* Members avatars */}
+          {members.length > 0 && (
+            <div className="flex items-center gap-2 mt-4">
+              <div className="flex -space-x-2">
+                {members.slice(0, 5).map((member) => (
+                  member.avatarUrl ? (
+                    <img
+                      key={member.id}
+                      src={member.avatarUrl}
+                      alt={member.name}
+                      title={member.name}
+                      className="w-8 h-8 rounded-full border-2 border-card object-cover"
+                    />
+                  ) : (
+                    <div
+                      key={member.id}
+                      title={member.name}
+                      className="w-8 h-8 rounded-full border-2 border-card bg-muted flex items-center justify-center text-xs font-medium"
+                    >
+                      {member.name.charAt(0)}
+                    </div>
+                  )
+                ))}
+                {members.length > 5 && (
+                  <div className="w-8 h-8 rounded-full border-2 border-card bg-muted flex items-center justify-center text-xs font-medium">
+                    +{members.length - 5}
+                  </div>
+                )}
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {members.map(m => m.name.split(' ')[0]).slice(0, 3).join(', ')}
+                {members.length > 3 && ` +${members.length - 3}`}
+              </span>
+            </div>
+          )}
+
+          <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
             <div className="flex items-center gap-1.5">
               <Users size={16} />
               <span>{league.memberCount} membros</span>
@@ -162,7 +212,7 @@ export function LeagueCard({
               <span>por {league.createdByName}</span>
             </div>
           </div>
-        </button>
+        </div>
       </div>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

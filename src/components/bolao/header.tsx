@@ -121,19 +121,16 @@ export function Header() {
                     </nav>
 
                     <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border/50 bg-background">
-                      <div className="flex items-center gap-3">
-                        <UserButton
-                          appearance={{
-                            elements: {
-                              avatarBox: "h-10 w-10",
-                            },
-                          }}
-                        />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">Minha Conta</p>
-                          <p className="text-xs text-muted-foreground">Gerenciar perfil</p>
-                        </div>
-                      </div>
+                      <UserButton
+                        showName
+                        appearance={{
+                          elements: {
+                            avatarBox: "h-10 w-10",
+                            userButtonBox: "flex-row-reverse gap-3",
+                            userButtonOuterIdentifier: "text-sm font-medium text-foreground",
+                          },
+                        }}
+                      />
                     </div>
                   </SheetContent>
                 </Sheet>

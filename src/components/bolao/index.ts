@@ -16,6 +16,7 @@ export { KnockoutMatchCard } from "./knockout-match-card";
 export { MetricCard, SingleMetricCard } from "./metric-card";
 export { LeagueCard } from "./league-card";
 export { LeagueSwitcher } from "./league-switcher";
+export { ShareModal } from "./share-modal";
 export { LandingPage } from "./landing-page";
 export { Dashboard } from "./dashboard";
 export { MatchSelectorModal } from "./match-selector-modal";

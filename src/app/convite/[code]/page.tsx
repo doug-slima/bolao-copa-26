@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useAuth, SignInButton } from "@clerk/nextjs";
 import { FlagBanner, CheckCircle, XCircle, CircleNotch } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
@@ -12,12 +12,14 @@ type JoinStatus = "loading" | "joining" | "success" | "error" | "needs_login";
 export default function ConvitePage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isSignedIn, isLoaded } = useAuth();
   const [status, setStatus] = useState<JoinStatus>("loading");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [leagueName, setLeagueName] = useState<string>("");
 
   const code = (params.code as string)?.toUpperCase();
+  const matchId = searchParams.get("jogo");
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -45,7 +47,11 @@ export default function ConvitePage() {
       setLeagueName(result.league.name);
       setStatus("success");
       setTimeout(() => {
-        router.push("/ligas");
+        if (matchId) {
+          router.push(`/jogos/${matchId}`);
+        } else {
+          router.push("/ligas");
+        }
       }, 2000);
     } else {
       setStatus("error");
@@ -78,7 +84,7 @@ export default function ConvitePage() {
               </div>
               <SignInButton
                 mode="modal"
-                forceRedirectUrl={`/convite/${code}`}
+                forceRedirectUrl={`/convite/${code}${matchId ? `?jogo=${matchId}` : ""}`}
               >
                 <Button size="lg" className="w-full rounded-full">
                   Fazer Login
@@ -110,7 +116,7 @@ export default function ConvitePage() {
                   Você entrou na liga <span className="font-bold text-foreground">{leagueName}</span>
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Redirecionando...
+                  {matchId ? "Redirecionando para o jogo..." : "Redirecionando..."}
                 </p>
               </div>
             </div>

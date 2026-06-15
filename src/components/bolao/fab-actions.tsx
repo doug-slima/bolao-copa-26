@@ -4,10 +4,18 @@ import { useState, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@clerk/nextjs";
-import { Plus, SneakerMove, Fire } from "@phosphor-icons/react";
+import { Plus, SneakerMove, Fire, Megaphone } from "@phosphor-icons/react";
 import { MatchSelectorModal } from "./match-selector-modal";
 import { ChallengeForm } from "./challenge-form";
+import { ShareModal } from "./share-modal";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { Match } from "@/types";
+import { getUserLeagues, type DbLeague } from "@/lib/db/leagues";
 
 const actionItems = [
   {
@@ -20,15 +28,26 @@ const actionItems = [
     label: "Desafie",
     icon: Fire,
   },
+  {
+    id: "convocar",
+    label: "Convocar",
+    icon: Megaphone,
+  },
 ];
 
 export function FabActions() {
   const [open, setOpen] = useState(false);
   const [chuteModalOpen, setChuteModalOpen] = useState(false);
   const [desafioModalOpen, setDesafioModalOpen] = useState(false);
+  const [convokeMatchModalOpen, setConvokeMatchModalOpen] = useState(false);
+  const [convokeLeagueModalOpen, setConvokeLeagueModalOpen] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const [matches, setMatches] = useState<Match[]>([]);
+  const [userLeagues, setUserLeagues] = useState<DbLeague[]>([]);
+  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const [selectedLeague, setSelectedLeague] = useState<DbLeague | null>(null);
   const pathname = usePathname();
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, userId } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -46,6 +65,12 @@ export function FabActions() {
       loadMatches();
     }
   }, [isSignedIn]);
+
+  useEffect(() => {
+    if (userId) {
+      getUserLeagues(userId).then(setUserLeagues);
+    }
+  }, [userId]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -74,7 +99,28 @@ export function FabActions() {
       setChuteModalOpen(true);
     } else if (actionId === "desafie") {
       setDesafioModalOpen(true);
+    } else if (actionId === "convocar") {
+      if (userLeagues.length > 0) {
+        setConvokeMatchModalOpen(true);
+      }
     }
+  };
+
+  const handleConvokeMatchSelect = (match: Match) => {
+    setSelectedMatch(match);
+    setConvokeMatchModalOpen(false);
+    if (userLeagues.length === 1) {
+      setSelectedLeague(userLeagues[0]);
+      setShareModalOpen(true);
+    } else {
+      setConvokeLeagueModalOpen(true);
+    }
+  };
+
+  const handleConvokeLeagueSelect = (league: DbLeague) => {
+    setSelectedLeague(league);
+    setConvokeLeagueModalOpen(false);
+    setShareModalOpen(true);
   };
 
   if (!isSignedIn) return null;
@@ -149,6 +195,57 @@ export function FabActions() {
         open={desafioModalOpen}
         onOpenChange={setDesafioModalOpen}
       />
+
+      {/* Convoke Match Selector */}
+      <MatchSelectorModal
+        matches={matches}
+        open={convokeMatchModalOpen}
+        onOpenChange={setConvokeMatchModalOpen}
+        onSelectMatch={handleConvokeMatchSelect}
+        title="Escolha o Jogo"
+      />
+
+      {/* Convoke League Selector */}
+      <Dialog open={convokeLeagueModalOpen} onOpenChange={setConvokeLeagueModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Escolha a Liga</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-4">
+            {userLeagues.map((league) => (
+              <button
+                key={league.id}
+                onClick={() => handleConvokeLeagueSelect(league)}
+                className="w-full text-left px-4 py-3 bg-muted hover:bg-muted/80 rounded-xl transition-colors"
+              >
+                <p className="font-medium">{league.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  {league.memberCount} participante{league.memberCount !== 1 ? "s" : ""}
+                </p>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Convoke Share Modal */}
+      {selectedMatch && selectedLeague && (
+        <ShareModal
+          open={shareModalOpen}
+          onOpenChange={(open) => {
+            setShareModalOpen(open);
+            if (!open) {
+              setSelectedMatch(null);
+              setSelectedLeague(null);
+            }
+          }}
+          title="Convocar Amigos"
+          description={`Convide seus amigos para fazer o chute neste jogo!`}
+          shareUrl={`${typeof window !== "undefined" ? window.location.origin : "https://bolaocopa.fun"}/convite/${selectedLeague.inviteCode}?jogo=${selectedMatch.id}`}
+          shareText={`⚽ ${selectedMatch.homeTeam.name} vs ${selectedMatch.awayTeam.name}\n\n🎯 Faça seu chute na liga "${selectedLeague.name}"!`}
+          imageUrl={`${typeof window !== "undefined" ? window.location.origin : "https://bolaocopa.fun"}/api/og/convocacao?jogo=${selectedMatch.id}&liga=${selectedLeague.id}`}
+        />
+      )}
     </>
   );
 }

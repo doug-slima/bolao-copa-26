@@ -16,6 +16,8 @@ interface MatchSelectorModalProps {
   matches: Match[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSelectMatch?: (match: Match) => void;
+  title?: string;
 }
 
 interface MatchWithPrediction {
@@ -27,6 +29,8 @@ export function MatchSelectorModal({
   matches,
   open,
   onOpenChange,
+  onSelectMatch: onSelectMatchProp,
+  title,
 }: MatchSelectorModalProps) {
   const { userId } = useAuth();
   const [matchesWithPredictions, setMatchesWithPredictions] = useState<MatchWithPrediction[]>([]);
@@ -63,6 +67,10 @@ export function MatchSelectorModal({
   };
 
   const handleSelectMatch = (match: Match) => {
+    if (onSelectMatchProp) {
+      onSelectMatchProp(match);
+      return;
+    }
     setSelectedMatch(match);
     setPredictionFormOpen(true);
   };
@@ -107,9 +115,9 @@ export function MatchSelectorModal({
               <div className="w-12 h-12 mx-auto rounded-full bg-primary/10 flex items-center justify-center mb-3">
                 <SneakerMove size={24} weight="bold" className="text-primary" />
               </div>
-              <h2 className="text-xl font-semibold">Fazer um Chute</h2>
+              <h2 className="text-xl font-semibold">{title || "Fazer um Chute"}</h2>
               <p className="text-sm text-muted-foreground">
-                Escolha um jogo para fazer seu chute
+                Escolha um jogo {onSelectMatchProp ? "" : "para fazer seu chute"}
               </p>
             </div>
 

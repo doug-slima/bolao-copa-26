@@ -4,11 +4,18 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { SignInButton } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { SneakerMove, Fire, ArrowLeft, Prohibit } from "@phosphor-icons/react";
+import { SneakerMove, Fire, ArrowLeft, Prohibit, Megaphone } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
-import { PredictionForm, ChallengeForm, TeamFlag, MatchStatsCard } from "@/components/bolao";
+import { PredictionForm, ChallengeForm, TeamFlag, MatchStatsCard, ShareModal } from "@/components/bolao";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { Match, Prediction } from "@/types";
 import { getPrediction } from "@/lib/db/predictions";
+import { getUserLeagues, type DbLeague } from "@/lib/db/leagues";
 import { isPredictionDeadlinePassed } from "@/lib/scoring";
 import { formatFullDate, formatMatchTime, isBeforeDayBrazil, getNowBrazil } from "@/lib/date-utils";
 
@@ -22,6 +29,10 @@ export function MatchDetailClient({ match }: MatchDetailClientProps) {
   const [predictionOpen, setPredictionOpen] = useState(false);
   const [challengeOpen, setChallengeOpen] = useState(false);
   const [currentPrediction, setCurrentPrediction] = useState<Prediction | null>(null);
+  const [convokeOpen, setConvokeOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [userLeagues, setUserLeagues] = useState<DbLeague[]>([]);
+  const [selectedLeagueForShare, setSelectedLeagueForShare] = useState<DbLeague | null>(null);
 
   useEffect(() => {
     if (userId) {
@@ -39,8 +50,27 @@ export function MatchDetailClient({ match }: MatchDetailClientProps) {
           });
         }
       });
+      getUserLeagues(userId).then(setUserLeagues);
     }
   }, [userId, match.id]);
+
+  const handleConvoke = () => {
+    if (userLeagues.length === 0) {
+      return;
+    }
+    if (userLeagues.length === 1) {
+      setSelectedLeagueForShare(userLeagues[0]);
+      setShareOpen(true);
+    } else {
+      setConvokeOpen(true);
+    }
+  };
+
+  const handleSelectLeague = (league: DbLeague) => {
+    setSelectedLeagueForShare(league);
+    setConvokeOpen(false);
+    setShareOpen(true);
+  };
 
   const isLocked = isPredictionDeadlinePassed(match.date);
 
@@ -271,6 +301,25 @@ export function MatchDetailClient({ match }: MatchDetailClientProps) {
               <span>Chutes e desafios aceitos até 5min antes do jogo.</span>
             </div>
           </div>
+
+          {/* Convoke Friends */}
+          {isSignedIn && userLeagues.length > 0 && (
+            <div className="bg-card rounded-2xl border border-border/50 p-6">
+              <div className="text-center space-y-4">
+                <Megaphone size={36} weight="duotone" className="mx-auto" />
+                <p className="text-foreground">
+                  Convoque seus amigos para chutar neste jogo!
+                </p>
+                <Button
+                  onClick={handleConvoke}
+                  variant="outline"
+                  className="rounded-full w-full h-12 text-base"
+                >
+                  Convocar Amigos
+                </Button>
+              </div>
+            </div>
+          )}
         </>
       )}
 
@@ -290,6 +339,45 @@ export function MatchDetailClient({ match }: MatchDetailClientProps) {
           match={match}
           open={challengeOpen}
           onOpenChange={setChallengeOpen}
+        />
+      )}
+
+      {/* League Selector for Convoke */}
+      <Dialog open={convokeOpen} onOpenChange={setConvokeOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Escolha a Liga</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-4">
+            {userLeagues.map((league) => (
+              <button
+                key={league.id}
+                onClick={() => handleSelectLeague(league)}
+                className="w-full text-left px-4 py-3 bg-muted hover:bg-muted/80 rounded-xl transition-colors"
+              >
+                <p className="font-medium">{league.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  {league.memberCount} participante{league.memberCount !== 1 ? "s" : ""}
+                </p>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Share Modal for Convoke */}
+      {selectedLeagueForShare && (
+        <ShareModal
+          open={shareOpen}
+          onOpenChange={(open) => {
+            setShareOpen(open);
+            if (!open) setSelectedLeagueForShare(null);
+          }}
+          title="Convocar Amigos"
+          description={`Convide seus amigos para fazer o chute neste jogo!`}
+          shareUrl={`${typeof window !== "undefined" ? window.location.origin : "https://bolaocopa.fun"}/convite/${selectedLeagueForShare.inviteCode}?jogo=${match.id}`}
+          shareText={`⚽ ${match.homeTeam.name} vs ${match.awayTeam.name}\n\n🎯 Faça seu chute na liga "${selectedLeagueForShare.name}"!`}
+          imageUrl={`${typeof window !== "undefined" ? window.location.origin : "https://bolaocopa.fun"}/api/og/convocacao?jogo=${match.id}&liga=${selectedLeagueForShare.id}`}
         />
       )}
     </div>

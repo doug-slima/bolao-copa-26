@@ -15,12 +15,14 @@ import {
   Sword,
   Eye,
   FlagBanner,
+  ShareNetwork,
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { RankingTable } from "@/components/bolao/ranking-table";
 import { MetricCard } from "@/components/bolao/metric-card";
 import { MobileTabSelect } from "@/components/bolao/mobile-tab-select";
 import { LeagueSwitcher } from "@/components/bolao/league-switcher";
+import { ShareModal } from "@/components/bolao/share-modal";
 import { cn } from "@/lib/utils";
 import type { UserRankingExtended, MetricLeader } from "@/types";
 import {
@@ -48,6 +50,7 @@ export function RankingPageClient() {
   const [generalRanking, setGeneralRanking] = useState<UserRankingExtended[]>([]);
   const [userLeagues, setUserLeagues] = useState<DbLeague[]>([]);
   const [leagueRanking, setLeagueRanking] = useState<UserRankingExtended[]>([]);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -380,9 +383,20 @@ export function RankingPageClient() {
               {/* League Ranking Table */}
               {leagueRanking.length > 0 && (
                 <div>
-                  <h2 className="text-lg font-semibold mb-4">
-                    {userLeagues.find((l) => l.id === selectedLeagueId)?.name || "Liga"}
-                  </h2>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold">
+                      {userLeagues.find((l) => l.id === selectedLeagueId)?.name || "Liga"}
+                    </h2>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowShareModal(true)}
+                      className="gap-2"
+                    >
+                      <ShareNetwork size={16} />
+                      <span className="hidden sm:inline">Compartilhar</span>
+                    </Button>
+                  </div>
                   <RankingTable
                     rankings={leagueRanking}
                     currentUserId={userId ?? undefined}
@@ -392,6 +406,19 @@ export function RankingPageClient() {
             </>
           )}
         </div>
+      )}
+
+      {/* Share Modal */}
+      {selectedLeagueId && (
+        <ShareModal
+          open={showShareModal}
+          onOpenChange={setShowShareModal}
+          title="Compartilhar Ranking"
+          description={`Compartilhe o ranking da liga ${userLeagues.find((l) => l.id === selectedLeagueId)?.name || ""}`}
+          shareUrl={`${typeof window !== "undefined" ? window.location.origin : "https://bolaocopa.fun"}/ranking?liga=${selectedLeagueId}`}
+          shareText={`🏆 Confira o ranking da liga "${userLeagues.find((l) => l.id === selectedLeagueId)?.name || ""}"\n\nVeja quem está liderando!`}
+          imageUrl={`${typeof window !== "undefined" ? window.location.origin : "https://bolaocopa.fun"}/api/og/ranking?liga=${selectedLeagueId}`}
+        />
       )}
     </div>
   );

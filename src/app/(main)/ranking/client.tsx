@@ -17,10 +17,10 @@ import {
   FlagBanner,
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
-import { Switcher } from "@/components/bolao/switcher";
 import { RankingTable } from "@/components/bolao/ranking-table";
 import { MetricCard } from "@/components/bolao/metric-card";
 import { MobileTabSelect } from "@/components/bolao/mobile-tab-select";
+import { LeagueSwitcher } from "@/components/bolao/league-switcher";
 import { cn } from "@/lib/utils";
 import type { UserRankingExtended, MetricLeader } from "@/types";
 import {
@@ -305,10 +305,11 @@ export function RankingPageClient() {
               Classificação das ligas que você participa
             </p>
             {userLeagues.length > 1 && (
-              <Switcher
-                options={userLeagues.map((l) => ({ value: l.id, label: l.name }))}
-                value={selectedLeagueId || ""}
+              <LeagueSwitcher
+                leagues={userLeagues.map((l) => ({ id: l.id, name: l.name }))}
+                selectedId={selectedLeagueId || ""}
                 onChange={setSelectedLeagueId}
+                className="w-full max-w-md"
               />
             )}
           </div>

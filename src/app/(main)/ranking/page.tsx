@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { RankingPageClient } from "./client";
-import { getAllMatches } from "@/lib/api";
 
 export const metadata = {
   title: "Ranking - Bolão Copa 26",
@@ -21,10 +20,9 @@ function RankingLoadingFallback() {
 }
 
 export default async function RankingPage() {
-  const matches = await getAllMatches();
   return (
     <Suspense fallback={<RankingLoadingFallback />}>
-      <RankingPageClient matches={matches} />
+      <RankingPageClient />
     </Suspense>
   );
 }

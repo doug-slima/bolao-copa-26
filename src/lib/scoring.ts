@@ -24,7 +24,14 @@ export function getMatchResult(homeScore: number, awayScore: number): MatchResul
 export function getFirstToScoreFromMatch(match: Match): FirstToScore {
   if (!match.score) return "none";
   if (match.score.home === 0 && match.score.away === 0) return "none";
-  return "home";
+  
+  // If only one team scored, they scored first
+  if (match.score.home > 0 && match.score.away === 0) return "home";
+  if (match.score.away > 0 && match.score.home === 0) return "away";
+  
+  // Both teams scored - we can't determine who scored first from final score alone
+  // Return "none" to not award points for this category when we can't verify
+  return "none";
 }
 
 export function isExactScoreCorrect(prediction: Prediction, match: Match): boolean {
@@ -42,11 +49,15 @@ export function isResultCorrect(prediction: Prediction, match: Match): boolean {
   return predictedResult === actualResult;
 }
 
-export function isFirstScorerCorrect(prediction: Prediction, match: Match): boolean {
+export function isFirstScorerCorrect(
+  prediction: Prediction,
+  match: Match,
+  actualFirstScorer?: FirstToScore
+): boolean {
   if (!match.score) return false;
   
-  const actualFirstScorer = getFirstToScoreFromMatch(match);
-  return prediction.firstToScore === actualFirstScorer;
+  const firstScorer = actualFirstScorer ?? getFirstToScoreFromMatch(match);
+  return prediction.firstToScore === firstScorer;
 }
 
 export interface PredictionAnalysis {
@@ -57,11 +68,15 @@ export interface PredictionAnalysis {
   predictedScore: string;
 }
 
-export function analyzePrediction(prediction: Prediction, match: Match): PredictionAnalysis {
+export function analyzePrediction(
+  prediction: Prediction,
+  match: Match,
+  actualFirstScorer?: FirstToScore
+): PredictionAnalysis {
   return {
     exactScoreCorrect: isExactScoreCorrect(prediction, match),
     resultCorrect: isResultCorrect(prediction, match),
-    firstScorerCorrect: isFirstScorerCorrect(prediction, match),
+    firstScorerCorrect: isFirstScorerCorrect(prediction, match, actualFirstScorer),
     predictedResult: getMatchResult(prediction.homeScore, prediction.awayScore),
     predictedScore: `${prediction.homeScore}x${prediction.awayScore}`,
   };
@@ -98,9 +113,10 @@ export function analyzeUniqueness(predictions: Prediction[]): UniquenessAnalysis
 export function calculatePoints(
   prediction: Prediction,
   match: Match,
-  allPredictions: Prediction[]
+  allPredictions: Prediction[],
+  actualFirstScorer?: FirstToScore
 ): { points: PredictionPoints; isUnique: PredictionUniqueness } {
-  const analysis = analyzePrediction(prediction, match);
+  const analysis = analyzePrediction(prediction, match, actualFirstScorer);
   
   const scoreKey = `${prediction.homeScore}-${prediction.awayScore}`;
   const predictedResult = getMatchResult(prediction.homeScore, prediction.awayScore);
@@ -156,10 +172,11 @@ export function calculatePoints(
 
 export function calculateAllPredictionPoints(
   predictions: Prediction[],
-  match: Match
+  match: Match,
+  actualFirstScorer?: FirstToScore
 ): Prediction[] {
   return predictions.map((prediction) => {
-    const { points, isUnique } = calculatePoints(prediction, match, predictions);
+    const { points, isUnique } = calculatePoints(prediction, match, predictions, actualFirstScorer);
     return {
       ...prediction,
       points,

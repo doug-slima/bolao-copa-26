@@ -22,7 +22,7 @@ import { RankingTable } from "@/components/bolao/ranking-table";
 import { MetricCard } from "@/components/bolao/metric-card";
 import { MobileTabSelect } from "@/components/bolao/mobile-tab-select";
 import { cn } from "@/lib/utils";
-import type { UserRankingExtended, MetricLeader, Match } from "@/types";
+import type { UserRankingExtended, MetricLeader } from "@/types";
 import {
   getGeneralRanking as dbGetGeneralRanking,
   getLeagueRanking as dbGetLeagueRanking,
@@ -35,11 +35,7 @@ import {
 
 type TabMode = "geral" | "ligas";
 
-interface RankingPageClientProps {
-  matches: Match[];
-}
-
-export function RankingPageClient({ matches }: RankingPageClientProps) {
+export function RankingPageClient() {
   const searchParams = useSearchParams();
   const { isSignedIn, userId } = useAuth();
   const [tabMode, setTabMode] = useState<TabMode>("geral");

@@ -230,6 +230,98 @@ export async function getLeagueMembers(leagueId: string): Promise<DbLeagueMember
   return data.map(transformMember);
 }
 
+export interface FriendWithLeagues {
+  userId: string;
+  userName: string;
+  userAvatarUrl: string | null;
+  leagues: Array<{ id: string; name: string }>;
+}
+
+export async function getAllFriendsWithLeagues(userId: string): Promise<FriendWithLeagues[]> {
+  const userLeagues = await getUserLeagues(userId);
+  
+  if (userLeagues.length === 0) {
+    return [];
+  }
+
+  const leagueIds = userLeagues.map((l) => l.id);
+
+  const { data: allMembers, error } = await supabase
+    .from("league_members")
+    .select("*")
+    .in("league_id", leagueIds);
+
+  if (error || !allMembers) {
+    return [];
+  }
+
+  const friendsMap = new Map<string, FriendWithLeagues>();
+
+  for (const member of allMembers) {
+    if (member.user_id === userId) continue;
+
+    const league = userLeagues.find((l) => l.id === member.league_id);
+    if (!league) continue;
+
+    if (friendsMap.has(member.user_id)) {
+      friendsMap.get(member.user_id)!.leagues.push({
+        id: league.id,
+        name: league.name,
+      });
+    } else {
+      friendsMap.set(member.user_id, {
+        userId: member.user_id,
+        userName: member.user_name,
+        userAvatarUrl: member.user_avatar_url,
+        leagues: [{ id: league.id, name: league.name }],
+      });
+    }
+  }
+
+  return Array.from(friendsMap.values()).sort((a, b) =>
+    a.userName.localeCompare(b.userName)
+  );
+}
+
+export async function getCommonLeagues(
+  userId1: string,
+  userId2: string
+): Promise<Array<{ id: string; name: string }>> {
+  const { data: memberships1, error: err1 } = await supabase
+    .from("league_members")
+    .select("league_id")
+    .eq("user_id", userId1);
+
+  const { data: memberships2, error: err2 } = await supabase
+    .from("league_members")
+    .select("league_id")
+    .eq("user_id", userId2);
+
+  if (err1 || err2 || !memberships1 || !memberships2) {
+    return [];
+  }
+
+  const leagues1 = new Set(memberships1.map((m) => m.league_id));
+  const commonLeagueIds = memberships2
+    .filter((m) => leagues1.has(m.league_id))
+    .map((m) => m.league_id);
+
+  if (commonLeagueIds.length === 0) {
+    return [];
+  }
+
+  const { data: leagues, error: leagueErr } = await supabase
+    .from("leagues")
+    .select("id, name")
+    .in("id", commonLeagueIds);
+
+  if (leagueErr || !leagues) {
+    return [];
+  }
+
+  return leagues.map((l) => ({ id: l.id, name: l.name }));
+}
+
 export function subscribeToLeague(
   leagueId: string,
   callback: (members: DbLeagueMember[]) => void

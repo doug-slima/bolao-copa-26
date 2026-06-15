@@ -87,6 +87,31 @@ CREATE INDEX IF NOT EXISTS idx_challenges_challenger_id ON challenges(challenger
 CREATE INDEX IF NOT EXISTS idx_challenges_challenged_id ON challenges(challenged_id);
 CREATE INDEX IF NOT EXISTS idx_challenges_status ON challenges(status);
 
+-- Unique constraint: one active challenge per pair of users per match
+CREATE UNIQUE INDEX IF NOT EXISTS challenges_unique_pair_match 
+ON challenges(
+  match_id, 
+  LEAST(challenger_id, challenged_id), 
+  GREATEST(challenger_id, challenged_id)
+)
+WHERE status NOT IN ('declined', 'completed');
+
+-- =============================================
+-- CHALLENGE LEAGUES TABLE
+-- Links challenges to multiple leagues
+-- =============================================
+CREATE TABLE IF NOT EXISTS challenge_leagues (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  challenge_id UUID NOT NULL REFERENCES challenges(id) ON DELETE CASCADE,
+  league_id UUID NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(challenge_id, league_id)
+);
+
+-- Indexes for efficient queries
+CREATE INDEX IF NOT EXISTS idx_challenge_leagues_challenge_id ON challenge_leagues(challenge_id);
+CREATE INDEX IF NOT EXISTS idx_challenge_leagues_league_id ON challenge_leagues(league_id);
+
 -- =============================================
 -- LEAGUES TABLE
 -- Stores private leagues
@@ -130,6 +155,7 @@ CREATE INDEX IF NOT EXISTS idx_league_members_user_id ON league_members(user_id)
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE predictions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE challenges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE challenge_leagues ENABLE ROW LEVEL SECURITY;
 ALTER TABLE leagues ENABLE ROW LEVEL SECURITY;
 ALTER TABLE league_members ENABLE ROW LEVEL SECURITY;
 
@@ -149,6 +175,11 @@ CREATE POLICY "Challenges are viewable by everyone" ON challenges FOR SELECT USI
 CREATE POLICY "Users can create challenges" ON challenges FOR INSERT WITH CHECK (true);
 CREATE POLICY "Users can update challenges" ON challenges FOR UPDATE USING (true);
 
+-- Challenge Leagues: anyone can read, service role manages writes
+CREATE POLICY "Challenge leagues are viewable by everyone" ON challenge_leagues FOR SELECT USING (true);
+CREATE POLICY "Service role can insert challenge leagues" ON challenge_leagues FOR INSERT WITH CHECK (true);
+CREATE POLICY "Service role can delete challenge leagues" ON challenge_leagues FOR DELETE USING (true);
+
 -- Leagues: anyone can read, creator can update
 CREATE POLICY "Leagues are viewable by everyone" ON leagues FOR SELECT USING (true);
 CREATE POLICY "Users can create leagues" ON leagues FOR INSERT WITH CHECK (true);
@@ -166,6 +197,7 @@ CREATE POLICY "Users can leave leagues" ON league_members FOR DELETE USING (true
 
 ALTER PUBLICATION supabase_realtime ADD TABLE predictions;
 ALTER PUBLICATION supabase_realtime ADD TABLE challenges;
+ALTER PUBLICATION supabase_realtime ADD TABLE challenge_leagues;
 ALTER PUBLICATION supabase_realtime ADD TABLE leagues;
 ALTER PUBLICATION supabase_realtime ADD TABLE league_members;
 ALTER PUBLICATION supabase_realtime ADD TABLE users;

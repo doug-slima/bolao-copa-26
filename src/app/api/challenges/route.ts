@@ -7,12 +7,34 @@ const CreateChallengeSchema = z.object({
   matchId: z.string().min(1),
   challengedId: z.string().min(1),
   challengedName: z.string().min(1),
+  leagueIds: z.array(z.string().uuid()).optional(),
 });
 
 const UpdateChallengeSchema = z.object({
   challengeId: z.string().uuid(),
   action: z.enum(["accept", "decline"]),
 });
+
+async function getCommonLeagueIds(userId1: string, userId2: string): Promise<string[]> {
+  const { data: memberships1 } = await supabaseAdmin
+    .from("league_members")
+    .select("league_id")
+    .eq("user_id", userId1);
+
+  const { data: memberships2 } = await supabaseAdmin
+    .from("league_members")
+    .select("league_id")
+    .eq("user_id", userId2);
+
+  if (!memberships1 || !memberships2) {
+    return [];
+  }
+
+  const leagues1 = new Set(memberships1.map((m) => m.league_id));
+  return memberships2
+    .filter((m) => leagues1.has(m.league_id))
+    .map((m) => m.league_id);
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,7 +57,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { matchId, challengedId, challengedName } = validation.data;
+    const { matchId, challengedId, challengedName, leagueIds: providedLeagueIds } = validation.data;
 
     if (userId === challengedId) {
       return NextResponse.json(
@@ -44,17 +66,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const commonLeagueIds = providedLeagueIds && providedLeagueIds.length > 0
+      ? providedLeagueIds
+      : await getCommonLeagueIds(userId, challengedId);
+
+    if (commonLeagueIds.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "Vocês não participam de nenhuma liga em comum." },
+        { status: 400 }
+      );
+    }
+
     const { data: existingChallenge } = await supabaseAdmin
       .from("challenges")
       .select("id")
       .eq("match_id", matchId)
-      .or(`challenger_id.eq.${userId},challenged_id.eq.${userId}`)
+      .or(`and(challenger_id.eq.${userId},challenged_id.eq.${challengedId}),and(challenger_id.eq.${challengedId},challenged_id.eq.${userId})`)
       .in("status", ["pending", "accepted"])
-      .single();
+      .maybeSingle();
 
     if (existingChallenge) {
       return NextResponse.json(
-        { success: false, error: "Você já tem um desafio ativo para este jogo." },
+        { success: false, error: "Você já tem um desafio ativo com esta pessoa para este jogo." },
         { status: 400 }
       );
     }
@@ -67,7 +100,7 @@ export async function POST(request: NextRequest) {
 
     const challengerName = user?.name || "Usuário";
 
-    const { data, error } = await supabaseAdmin
+    const { data: challenge, error: challengeError } = await supabaseAdmin
       .from("challenges")
       .insert({
         match_id: matchId,
@@ -80,15 +113,39 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (error) {
-      console.error("Error creating challenge:", error);
+    if (challengeError) {
+      console.error("Error creating challenge:", challengeError);
       return NextResponse.json(
         { success: false, error: "Erro ao criar desafio." },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ success: true, challenge: data });
+    const challengeLeaguesData = commonLeagueIds.map((leagueId) => ({
+      challenge_id: challenge.id,
+      league_id: leagueId,
+    }));
+
+    const { error: leaguesError } = await supabaseAdmin
+      .from("challenge_leagues")
+      .insert(challengeLeaguesData);
+
+    if (leaguesError) {
+      console.error("Error creating challenge_leagues:", leaguesError);
+      await supabaseAdmin.from("challenges").delete().eq("id", challenge.id);
+      return NextResponse.json(
+        { success: false, error: "Erro ao vincular desafio às ligas." },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ 
+      success: true, 
+      challenge: {
+        ...challenge,
+        leagueIds: commonLeagueIds,
+      },
+    });
   } catch (error) {
     console.error("Challenge API error:", error);
     return NextResponse.json(

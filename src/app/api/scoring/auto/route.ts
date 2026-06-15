@@ -100,6 +100,7 @@ async function scoreMatch(match: Match): Promise<{ scored: number }> {
   }
 
   if (!predictions || predictions.length === 0) {
+    await resolveChallenges(match.id);
     return { scored: 0 };
   }
 
@@ -177,6 +178,8 @@ async function scoreMatch(match: Match): Promise<{ scored: number }> {
     await recalculateUserStats(userId);
   }
 
+  await resolveChallenges(match.id);
+
   return { scored: updates.length };
 }
 
@@ -210,6 +213,18 @@ async function recalculateUserStats(userId: string): Promise<void> {
     }
   }
 
+  const { count: winsCount } = await supabaseAdmin
+    .from("challenges")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "completed")
+    .or(`and(challenger_id.eq.${userId},winner.eq.challenger),and(challenged_id.eq.${userId},winner.eq.challenged)`);
+
+  const { count: lossesCount } = await supabaseAdmin
+    .from("challenges")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "completed")
+    .or(`and(challenger_id.eq.${userId},winner.eq.challenged),and(challenged_id.eq.${userId},winner.eq.challenger)`);
+
   await supabaseAdmin
     .from("users")
     .update({
@@ -218,7 +233,70 @@ async function recalculateUserStats(userId: string): Promise<void> {
       correct_results: correctResults,
       correct_first_scorers: correctFirstScorers,
       total_predictions: totalPredictionCount,
+      challenge_wins: winsCount || 0,
+      challenge_losses: lossesCount || 0,
       updated_at: new Date().toISOString(),
     })
     .eq("clerk_id", userId);
+}
+
+async function resolveChallenges(matchId: string): Promise<void> {
+  const { data: acceptedChallenges, error } = await supabaseAdmin
+    .from("challenges")
+    .select("*")
+    .eq("match_id", matchId)
+    .eq("status", "accepted");
+
+  if (error || !acceptedChallenges || acceptedChallenges.length === 0) {
+    return;
+  }
+
+  for (const challenge of acceptedChallenges) {
+    const { data: challengerPrediction } = await supabaseAdmin
+      .from("predictions")
+      .select("points_total")
+      .eq("match_id", matchId)
+      .eq("user_id", challenge.challenger_id)
+      .single();
+
+    const { data: challengedPrediction } = await supabaseAdmin
+      .from("predictions")
+      .select("points_total")
+      .eq("match_id", matchId)
+      .eq("user_id", challenge.challenged_id)
+      .single();
+
+    const challengerPoints = challengerPrediction?.points_total ?? 0;
+    const challengedPoints = challengedPrediction?.points_total ?? 0;
+
+    let winner: "challenger" | "challenged" | "tie" | "void";
+    
+    if (challengerPrediction === null && challengedPrediction === null) {
+      winner = "void";
+    } else if (challengerPrediction === null) {
+      winner = "challenged";
+    } else if (challengedPrediction === null) {
+      winner = "challenger";
+    } else if (challengerPoints > challengedPoints) {
+      winner = "challenger";
+    } else if (challengedPoints > challengerPoints) {
+      winner = "challenged";
+    } else {
+      winner = "tie";
+    }
+
+    await supabaseAdmin
+      .from("challenges")
+      .update({
+        status: "completed",
+        challenger_points: challengerPoints,
+        challenged_points: challengedPoints,
+        winner,
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", challenge.id);
+
+    await recalculateUserStats(challenge.challenger_id);
+    await recalculateUserStats(challenge.challenged_id);
+  }
 }

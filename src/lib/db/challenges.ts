@@ -7,6 +7,7 @@ export interface ChallengeInput {
   matchId: string;
   challengedId: string;
   challengedName: string;
+  leagueIds?: string[];
 }
 
 export interface DbChallenge {
@@ -54,6 +55,7 @@ export async function createChallenge(
         matchId: input.matchId,
         challengedId: input.challengedId,
         challengedName: input.challengedName,
+        leagueIds: input.leagueIds,
       }),
     });
 
@@ -231,6 +233,33 @@ export async function getMatchChallengeCount(
   matchId: string,
   leagueId?: string
 ): Promise<number> {
+  if (leagueId) {
+    const { data: challengeLeagues, error: clError } = await supabase
+      .from("challenge_leagues")
+      .select("challenge_id")
+      .eq("league_id", leagueId);
+
+    if (clError || !challengeLeagues || challengeLeagues.length === 0) {
+      return 0;
+    }
+
+    const challengeIds = challengeLeagues.map((cl) => cl.challenge_id);
+
+    const { count, error } = await supabase
+      .from("challenges")
+      .select("*", { count: "exact", head: true })
+      .eq("match_id", matchId)
+      .in("id", challengeIds)
+      .in("status", ["pending", "accepted", "completed"]);
+
+    if (error) {
+      console.error("Error getting challenge count for league:", error);
+      return 0;
+    }
+
+    return count || 0;
+  }
+
   const { count, error } = await supabase
     .from("challenges")
     .select("*", { count: "exact", head: true })
@@ -243,4 +272,68 @@ export async function getMatchChallengeCount(
   }
 
   return count || 0;
+}
+
+export async function getChallengeLeagues(challengeId: string): Promise<Array<{ id: string; name: string }>> {
+  const { data, error } = await supabase
+    .from("challenge_leagues")
+    .select("league_id, leagues(id, name)")
+    .eq("challenge_id", challengeId);
+
+  if (error || !data) {
+    return [];
+  }
+
+  return data
+    .filter((d) => d.leagues)
+    .map((d) => ({
+      id: (d.leagues as any).id,
+      name: (d.leagues as any).name,
+    }));
+}
+
+export async function getLeagueChallengeStats(
+  leagueId: string,
+  userId: string
+): Promise<{ wins: number; losses: number; ties: number }> {
+  const { data: challengeLeagues, error: clError } = await supabase
+    .from("challenge_leagues")
+    .select("challenge_id")
+    .eq("league_id", leagueId);
+
+  if (clError || !challengeLeagues || challengeLeagues.length === 0) {
+    return { wins: 0, losses: 0, ties: 0 };
+  }
+
+  const challengeIds = challengeLeagues.map((cl) => cl.challenge_id);
+
+  const { data: challenges, error } = await supabase
+    .from("challenges")
+    .select("*")
+    .in("id", challengeIds)
+    .eq("status", "completed")
+    .or(`challenger_id.eq.${userId},challenged_id.eq.${userId}`);
+
+  if (error || !challenges) {
+    return { wins: 0, losses: 0, ties: 0 };
+  }
+
+  let wins = 0;
+  let losses = 0;
+  let ties = 0;
+
+  for (const challenge of challenges) {
+    if (challenge.winner === "tie") {
+      ties++;
+    } else if (
+      (challenge.challenger_id === userId && challenge.winner === "challenger") ||
+      (challenge.challenged_id === userId && challenge.winner === "challenged")
+    ) {
+      wins++;
+    } else {
+      losses++;
+    }
+  }
+
+  return { wins, losses, ties };
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
-import { X, Bell, Fire, Check, XCircle } from "@phosphor-icons/react";
+import { Bell, Fire, Check, XCircle, Clock } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -16,7 +16,11 @@ import {
   subscribeToNotifications,
   type Notification,
 } from "@/lib/db/notifications";
-import { acceptChallenge, declineChallenge } from "@/lib/db/challenges";
+import { acceptChallenge, declineChallenge, getChallengeById } from "@/lib/db/challenges";
+import { getPrediction } from "@/lib/db/predictions";
+import { PredictionForm } from "./prediction-form";
+import { getAllMatches } from "@/lib/api";
+import type { Match } from "@/types";
 
 interface NotificationsModalProps {
   open: boolean;
@@ -33,6 +37,9 @@ export function NotificationsModal({
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [showPredictionForm, setShowPredictionForm] = useState(false);
+  const [pendingAcceptNotification, setPendingAcceptNotification] = useState<Notification | null>(null);
+  const [pendingMatch, setPendingMatch] = useState<Match | null>(null);
 
   useEffect(() => {
     if (open && isSignedIn && userId) {
@@ -59,8 +66,40 @@ export function NotificationsModal({
   };
 
   const handleAccept = async (notification: Notification) => {
-    if (!notification.metadata?.challengeId) return;
+    if (!notification.metadata?.challengeId || !userId) return;
     setActionLoading(notification.id);
+
+    try {
+      const challenge = await getChallengeById(notification.metadata.challengeId);
+      if (!challenge) {
+        setActionLoading(null);
+        return;
+      }
+
+      const prediction = await getPrediction(challenge.matchId, userId);
+      
+      if (!prediction) {
+        const matches = await getAllMatches();
+        const match = matches.find((m) => m.id === challenge.matchId);
+        
+        if (match) {
+          setPendingAcceptNotification(notification);
+          setPendingMatch(match);
+          setShowPredictionForm(true);
+          setActionLoading(null);
+          return;
+        }
+      }
+
+      await completeAccept(notification);
+    } catch (error) {
+      console.error("Error checking prediction:", error);
+      setActionLoading(null);
+    }
+  };
+
+  const completeAccept = async (notification: Notification) => {
+    if (!notification.metadata?.challengeId) return;
     
     const result = await acceptChallenge(notification.metadata.challengeId);
     if (result.success) {
@@ -69,6 +108,26 @@ export function NotificationsModal({
     }
     
     setActionLoading(null);
+  };
+
+  const handlePredictionSaved = async () => {
+    setShowPredictionForm(false);
+    setPendingMatch(null);
+    
+    if (pendingAcceptNotification) {
+      setActionLoading(pendingAcceptNotification.id);
+      await completeAccept(pendingAcceptNotification);
+      setPendingAcceptNotification(null);
+    }
+  };
+
+  const handlePredictionFormClose = (isOpen: boolean) => {
+    setShowPredictionForm(isOpen);
+    if (!isOpen) {
+      setPendingMatch(null);
+      setPendingAcceptNotification(null);
+      setActionLoading(null);
+    }
   };
 
   const handleDecline = async (notification: Notification) => {
@@ -97,6 +156,17 @@ export function NotificationsModal({
     if (minutes > 0) return `${minutes}min atrás`;
     return "Agora";
   };
+
+  if (showPredictionForm && pendingMatch) {
+    return (
+      <PredictionForm
+        match={pendingMatch}
+        open={showPredictionForm}
+        onOpenChange={handlePredictionFormClose}
+        onSave={handlePredictionSaved}
+      />
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -161,27 +231,39 @@ export function NotificationsModal({
                   </div>
 
                   {notification.type === "challenge_received" && (
-                    <div className="flex gap-2 mt-3">
-                      <Button
-                        size="sm"
-                        onClick={() => handleAccept(notification)}
-                        disabled={actionLoading === notification.id}
-                        className="flex-1"
-                      >
-                        <Check size={16} className="mr-1" />
-                        Aceitar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDecline(notification)}
-                        disabled={actionLoading === notification.id}
-                        className="flex-1"
-                      >
-                        <XCircle size={16} className="mr-1" />
-                        Recusar
-                      </Button>
-                    </div>
+                    <>
+                      <div className="flex items-center gap-2 mt-3 mb-2 text-xs text-muted-foreground bg-muted/50 px-3 py-2 rounded-lg">
+                        <Clock size={14} />
+                        <span>Você precisará fazer seu chute para aceitar</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => handleAccept(notification)}
+                          disabled={actionLoading === notification.id}
+                          className="flex-1"
+                        >
+                          {actionLoading === notification.id ? (
+                            "Verificando..."
+                          ) : (
+                            <>
+                              <Check size={16} className="mr-1" />
+                              Aceitar
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDecline(notification)}
+                          disabled={actionLoading === notification.id}
+                          className="flex-1"
+                        >
+                          <XCircle size={16} className="mr-1" />
+                          Recusar
+                        </Button>
+                      </div>
+                    </>
                   )}
                 </div>
               ))}

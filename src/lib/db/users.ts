@@ -3,6 +3,24 @@
 import { supabase } from "@/lib/supabase";
 import type { UserRankingExtended, RankingMovement } from "@/types";
 
+let lastAutoScoreTime = 0;
+const AUTO_SCORE_INTERVAL = 60000; // 1 minute cooldown
+
+export async function triggerAutoScore(): Promise<void> {
+  const now = Date.now();
+  if (now - lastAutoScoreTime < AUTO_SCORE_INTERVAL) {
+    return;
+  }
+  
+  lastAutoScoreTime = now;
+  
+  try {
+    await fetch("/api/scoring/auto", { method: "GET" });
+  } catch (error) {
+    console.error("Error triggering auto-score:", error);
+  }
+}
+
 export interface DbUser {
   id: string;
   clerkId: string;

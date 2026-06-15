@@ -27,6 +27,7 @@ import {
   getGeneralRanking as dbGetGeneralRanking,
   getLeagueRanking as dbGetLeagueRanking,
   subscribeToRanking,
+  triggerAutoScore,
 } from "@/lib/db/users";
 import {
   getUserLeagues as dbGetUserLeagues,
@@ -87,6 +88,8 @@ export function RankingPageClient() {
 
   const loadGeneralRanking = async () => {
     setLoading(true);
+    // Trigger auto-scoring of finished matches before loading ranking
+    await triggerAutoScore();
     const rankings = await dbGetGeneralRanking();
     setGeneralRanking(rankings);
     setLoading(false);
